@@ -16,6 +16,7 @@ import { resolveRuntimeApp } from "./runtime.mjs";
 export const reconstructedUpdaterGuard = [
   "// Reconstructed-build guard: do not consume official update or telemetry services.",
   "// Keep onebot's host, daemon, and session state isolated from the upstream app.",
+  "require(\"electron\").app.setName(\"onebot\");",
   "process.env.SAND_DATA_ROOT ??= require(\"node:path\").join(require(\"node:os\").homedir(), \".onebot\");",
   "process.env.SAND_DISABLE_UPDATES ??= \"1\";",
   "process.env.SAND_DISABLE_SENTRY ??= \"1\";",

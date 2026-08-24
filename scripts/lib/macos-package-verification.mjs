@@ -339,7 +339,7 @@ export async function verifyReconstructedMacPackage({ officialApp, reconstructed
     throw new TypeError("Explicit officialApp, reconstructedApp, sourceUnpackedRoot, and packagedUnpackedRoot paths are required");
   }
   const officialShellPath = path.join(officialApp, "Contents", "MacOS", "Grok Bot");
-  const reconstructedShellPath = path.join(reconstructedApp, "Contents", "MacOS", "Grok Bot");
+  const reconstructedShellPath = path.join(reconstructedApp, "Contents", "MacOS", "onebot");
   const officialAsarPath = path.join(officialApp, "Contents", "Resources", "app.asar");
   const reconstructedAsarPath = path.join(reconstructedApp, "Contents", "Resources", "app.asar");
   const [officialShell, reconstructedShell, officialAsar, reconstructedAsar] = await Promise.all([

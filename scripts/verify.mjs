@@ -280,6 +280,19 @@ const bundleId = await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleIdenti
 if (bundleId !== reconstructedBundleId) throw new Error(`Unexpected reconstructed bundle ID: ${bundleId}`);
 const displayName = await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleDisplayName", "raw", infoPlist]);
 if (displayName !== reconstructedName) throw new Error(`Unexpected reconstructed display name: ${displayName}`);
+const bundleName = await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleName", "raw", infoPlist]);
+if (bundleName !== reconstructedName) throw new Error(`Unexpected reconstructed bundle name: ${bundleName}`);
+const executableName = await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleExecutable", "raw", infoPlist]);
+if (executableName !== reconstructedName) throw new Error(`Unexpected reconstructed executable name: ${executableName}`);
+await access(path.join(verifiedApp, "Contents", "MacOS", reconstructedName));
+for (const suffix of ["", " (GPU)", " (Plugin)", " (Renderer)"]) {
+  const helperName = `${reconstructedName} Helper${suffix}`;
+  const helperApp = path.join(verifiedApp, "Contents", "Frameworks", `${helperName}.app`);
+  const helperPlist = path.join(helperApp, "Contents", "Info.plist");
+  if (await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleName", "raw", helperPlist]) !== helperName) throw new Error(`Unexpected helper bundle name: ${helperName}`);
+  if (await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleExecutable", "raw", helperPlist]) !== helperName) throw new Error(`Unexpected helper executable name: ${helperName}`);
+  await access(path.join(helperApp, "Contents", "MacOS", helperName));
+}
 const plistText = await capture(SYSTEM_TOOLS.plutil, ["-convert", "xml1", "-o", "-", infoPlist]);
 if (plistText.includes("ElectronAsarIntegrity")) throw new Error("Stale ElectronAsarIntegrity metadata remains in the reconstructed application");
 const urlTypes = await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleURLTypes", "xml1", "-o", "-", infoPlist]);

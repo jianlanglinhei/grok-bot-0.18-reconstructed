@@ -1,4 +1,4 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import {
   outputApp,
@@ -44,17 +44,40 @@ await cp(builtAsarUnpacked, packagedUnpacked, {
 });
 
 const infoPlist = path.join(outputApp, "Contents", "Info.plist");
+const originalExecutableName = "Grok Bot";
+const mainExecutable = path.join(outputApp, "Contents", "MacOS", originalExecutableName);
+const brandedMainExecutable = path.join(outputApp, "Contents", "MacOS", reconstructedName);
+await rename(mainExecutable, brandedMainExecutable);
+const helperSuffixes = ["", " (GPU)", " (Plugin)", " (Renderer)"];
+for (const suffix of helperSuffixes) {
+  const originalHelperName = `${originalExecutableName} Helper${suffix}`;
+  const brandedHelperName = `${reconstructedName} Helper${suffix}`;
+  const originalHelperApp = path.join(outputApp, "Contents", "Frameworks", `${originalHelperName}.app`);
+  const helperInfoPlist = path.join(originalHelperApp, "Contents", "Info.plist");
+  await rename(
+    path.join(originalHelperApp, "Contents", "MacOS", originalHelperName),
+    path.join(originalHelperApp, "Contents", "MacOS", brandedHelperName),
+  );
+  await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleExecutable", "-string", brandedHelperName, helperInfoPlist]);
+  await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleDisplayName", "-string", brandedHelperName, helperInfoPlist]);
+  await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleName", "-string", brandedHelperName, helperInfoPlist]);
+  const helperKind = suffix.length === 0 ? "" : `.${suffix.slice(2, -1)}`;
+  await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleIdentifier", "-string", `${reconstructedBundleId}.helper${helperKind}`, helperInfoPlist]);
+  await rename(originalHelperApp, path.join(outputApp, "Contents", "Frameworks", `${brandedHelperName}.app`));
+}
 await run(SYSTEM_TOOLS.plutil, ["-remove", "ElectronAsarIntegrity", infoPlist]);
 await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleIdentifier", "-string", reconstructedBundleId, infoPlist]);
 await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleDisplayName", "-string", reconstructedName, infoPlist]);
+await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleName", "-string", reconstructedName, infoPlist]);
+await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleExecutable", "-string", reconstructedName, infoPlist]);
 // The backend currently emits only the `sand` auth/deep-link target. Make the
 // reconstructed bundle's claim explicit and remove inherited aliases such as
 // `grokbot`; the original bundle remains untouched and remains reference-only.
 await run(SYSTEM_TOOLS.plutil, ["-remove", "CFBundleURLTypes", infoPlist]);
 await run(SYSTEM_TOOLS.plutil, ["-insert", "CFBundleURLTypes", "-xml", "<array><dict><key>CFBundleTypeRole</key><string>Viewer</string><key>CFBundleURLName</key><string>onebot auth callback</string><key>CFBundleURLSchemes</key><array><string>sand</string></array></dict></array>", infoPlist]);
-// Keep CFBundleName/CFBundleExecutable as "Grok Bot": Electron derives the
-// expected nested helper names from it, and this build intentionally reuses the
-// exact ABI-matched 0.18 runtime. CFBundleDisplayName provides the fork's name.
+// Electron resolves helper bundle paths from CFBundleName, so the main bundle,
+// all four helper bundles, their executables, and their plist identities are
+// branded as one atomic operation before the recursive signature is applied.
 
 await rm(path.join(outputApp, "Contents", "_CodeSignature"), { recursive: true, force: true });
 try {

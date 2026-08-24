@@ -17,6 +17,7 @@ test("reconstructed fallback and clean packaging share one idempotent service gu
   assert.equal(guarded, `${reconstructedUpdaterGuard}${source}`);
   assert.equal(applyReconstructedUpdaterGuard(guarded), guarded);
   assert.match(guarded, /SAND_DATA_ROOT \?\?= require\("node:path"\)\.join\(require\("node:os"\)\.homedir\(\), "\.onebot"\)/);
+  assert.match(guarded, /require\("electron"\)\.app\.setName\("onebot"\)/);
   assert.match(guarded, /SAND_DISABLE_UPDATES \?\?= "1"/);
   assert.match(guarded, /SAND_DISABLE_SENTRY \?\?= "1"/);
   assert.match(guarded, /SAND_DISABLE_TELEMETRY \?\?= "1"/);
