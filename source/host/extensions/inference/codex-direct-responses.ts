@@ -152,7 +152,7 @@ export async function* streamCodexDirectResponses(options: CodexDirectOptions): 
     const declaredTools = requestTools(options.tools);
     const response = await options.fetch(options.endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "text/event-stream", "user-agent": "grok-bot-router/1" },
+      headers: { "content-type": "application/json", accept: "text/event-stream", "user-agent": "onebot-router/1" },
       body: JSON.stringify({
         model: options.model,
         instructions: options.instructions,
@@ -216,7 +216,7 @@ export async function* streamCodexDirectResponses(options: CodexDirectOptions): 
     for (const call of calls) {
       const selected = toolsByName.get(call.name);
       if (selected == null) {
-        results.push({ type: "function_call_output", call_id: call.call_id, output: safeJson({ isError: true, error: `Unknown Grok Bot tool: ${call.name}` }) });
+        results.push({ type: "function_call_output", call_id: call.call_id, output: safeJson({ isError: true, error: `Unknown onebot tool: ${call.name}` }) });
         continue;
       }
       let args: unknown = {};
@@ -230,5 +230,5 @@ export async function* streamCodexDirectResponses(options: CodexDirectOptions): 
     }
     input = [...input, ...output.map(item => record(item) ?? {}), ...results];
   }
-  throw new Error(`Codex exceeded Grok Bot's ${maxSteps}-step tool limit.`);
+  throw new Error(`Codex exceeded onebot's ${maxSteps}-step tool limit.`);
 }

@@ -572,7 +572,7 @@ export async function validateHostProductionBindingManifest(manifestPath) {
   return assembleHostProductionBindingManifest(manifestPath);
 }
 
-export async function buildProductionHostIfSupplied({ outputRoot, manifestPath = process.env.GROK_BOT_HOST_BINDINGS_MANIFEST?.trim() || null } = {}) {
+export async function buildProductionHostIfSupplied({ outputRoot, manifestPath = process.env.ONEBOT_HOST_BINDINGS_MANIFEST?.trim() || null } = {}) {
   const validated = await assembleHostProductionBindingManifest(manifestPath);
   if (validated.unboundBindings.length > 0) {
     return {
@@ -662,7 +662,7 @@ export async function buildProductionHostIfSupplied({ outputRoot, manifestPath =
 }
 
 if (process.argv[1] != null && path.resolve(process.argv[1]) === scriptPath) {
-  const manifestPath = process.argv[2] ?? process.env.GROK_BOT_HOST_BINDINGS_MANIFEST?.trim() ?? null;
+  const manifestPath = process.argv[2] ?? process.env.ONEBOT_HOST_BINDINGS_MANIFEST?.trim() ?? null;
   const validated = await assembleHostProductionBindingManifest(manifestPath);
   console.log(`Host production bindings: ${validated.boundBindings.length} bound, ${validated.unboundBindings.length} mandatory unbound (${validated.manifestSha256}).`);
   for (const item of validated.inventory) console.log(`${item.status.padEnd(7)} ${item.path}`);

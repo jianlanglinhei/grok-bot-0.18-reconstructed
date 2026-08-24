@@ -1,9 +1,9 @@
 {
-  "name": "grok-bot-0.18-reconstructed",
+  "name": "onebot",
   "version": "0.18.0-reconstructed.1",
   "private": true,
   "type": "module",
-  "description": "Source-oriented reconstruction of the publicly shipped Grok Bot 0.18.0 macOS application",
+  "description": "onebot desktop agent reconstructed from the public 0.18.0 macOS application",
   "engines": {
     "node": ">=26.5.0 <27"
   },

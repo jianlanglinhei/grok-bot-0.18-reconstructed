@@ -399,7 +399,7 @@ export const FLAGS = {
         client: true,
         default: false
       },
-      // Sand desktop's "Get Grok Bot for iOS" account-menu row (opens the iOS
+      // Sand desktop's "Get onebot for iOS" account-menu row (opens the iOS
       // download page). When OFF (the default) the row is absent from the menu.
       sand_get_grok_bot_ios: {
         client: true,
@@ -1863,7 +1863,7 @@ export const FLAGS = {
       // combined path that persists pricing_strategy=tokens and enables tiered
       // pricing in one transaction; when OFF, those teams keep today's
       // "Only token-priced self-serve teams" rejection. `client: true` because
-      // the Grok Bot onboarding wizard reads the same gate to decide between
+      // the onebot onboarding wizard reads the same gate to decide between
       // offering the combined switch and showing the request-pricing blocker
       // without firing a doomed preview; the backend still enforces the gate
       // (plus the sand_onboarding request origin) on both endpoints.

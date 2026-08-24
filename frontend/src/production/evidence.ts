@@ -29,7 +29,7 @@ export const PRODUCTION_UI_EVIDENCE = {
   signOutConfirmation: {
     artifact: "index-UbX-y3il.js",
     location: "index-UbX-y3il.js:49084",
-    anchors: ["Sign out?", "You’ll need to sign in again to use your Cursor account with Grok Bot.", "Sign out", "Cancel"]
+    anchors: ["Sign out?", "You’ll need to sign in again to use your Cursor account with onebot.", "Sign out", "Cancel"]
   },
   privacyBlockedDialog: {
     artifact: "index-UbX-y3il.js",
@@ -170,7 +170,7 @@ export const UI_TEXT = {
   copied: "Copied",
   copyVersionInfo: "Copy version info",
   copyright: "Copyright © 2026 SpaceXAI",
-  feedbackIntroduction: "Tell the Grok Bot team what happened or what you want changed. Reports go straight to the team.",
+  feedbackIntroduction: "Tell the onebot team what happened or what you want changed. Reports go straight to the team.",
   feedbackPlaceholder: "What happened? What did you expect?",
   helpCenter: "Help Center",
   hiddenBots: "Hidden Bots",
@@ -184,7 +184,7 @@ export const UI_TEXT = {
   signIn: "Sign in",
   signInTagline: "Your team of always-on agents that you can give real work to.",
   signOut: "Sign out",
-  signOutDescription: "You’ll need to sign in again to use your Cursor account with Grok Bot.",
+  signOutDescription: "You’ll need to sign in again to use your Cursor account with onebot.",
   signOutTitle: "Sign out?",
-  title: "Grok Bot"
+  title: "onebot"
 } as const;

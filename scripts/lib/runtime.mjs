@@ -21,16 +21,16 @@ export async function validateRuntimeApp(appPath) {
   const unpacked = path.join(appPath, "Contents", "Resources", "app.asar.unpacked");
   const version = await capture(SYSTEM_TOOLS.plutil, ["-extract", "CFBundleShortVersionString", "raw", infoPlist]);
   if (version !== upstreamVersion) {
-    throw new Error(`Expected Grok Bot ${upstreamVersion}, got ${version} at ${appPath}`);
+    throw new Error(`Expected upstream runtime ${upstreamVersion}, got ${version} at ${appPath}`);
   }
   if (!(await stat(executable)).isFile() || !(await stat(unpacked)).isDirectory()) {
-    throw new Error(`Incomplete Grok Bot runtime at ${appPath}`);
+    throw new Error(`Incomplete upstream runtime at ${appPath}`);
   }
   return appPath;
 }
 
 export async function resolveRuntimeApp() {
-  const configured = process.env.GROK_BOT_018_APP?.trim();
+  const configured = process.env.ONEBOT_018_APP?.trim();
   if (configured) {
     return await validateRuntimeApp(path.resolve(configured));
   }
@@ -61,7 +61,7 @@ export async function hydrateSourcePayloadFromAsar(archive, {
 
   const hydrationRoot = path.join(cacheDir, "source-payloads");
   await mkdir(hydrationRoot, { recursive: true });
-  const temporary = await mkdtemp(path.join(hydrationRoot, "grok-bot-018-"));
+  const temporary = await mkdtemp(path.join(hydrationRoot, "onebot-018-"));
   try {
     extractAll(archive, temporary);
     for (const required of [

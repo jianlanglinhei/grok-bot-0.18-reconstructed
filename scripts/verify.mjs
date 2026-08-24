@@ -184,14 +184,14 @@ if (rendererComposition?.mode === "clean-source") {
     const allowedKeys = ["schemaVersion", "mode", "chunks", "features", "transformations"];
     if (rendererExtension.schemaVersion !== 1 || rendererExtension.mode !== "original-renderer-settings-extension" || !Array.isArray(rendererExtension.chunks)
       || Object.keys(rendererExtension).sort().join("\0") !== allowedKeys.sort().join("\0")
-      || rendererExtension.chunks.length < 1 || rendererExtension.chunks.length > 2) {
+      || rendererExtension.chunks.length < 2 || rendererExtension.chunks.length > rendererProvenance.fileCount) {
       throw new Error("Packaged renderer extension provenance is invalid.");
     }
     const provenanceFiles = new Map(rendererProvenance.files.map(file => [file.path, file]));
     for (const chunk of rendererExtension.chunks) {
       const relative = typeof chunk?.path === "string" && chunk.path.startsWith("dist/renderer/") ? chunk.path.slice("dist/renderer/".length) : null;
       const original = relative == null ? null : provenanceFiles.get(relative);
-      if (relative == null || original == null || rendererExtensionChunks.has(relative) || !["registry", "panel"].includes(chunk.role)
+      if (relative == null || original == null || rendererExtensionChunks.has(relative) || !["branding", "registry", "panel"].includes(chunk.role)
         || !Number.isInteger(chunk.original?.bytes) || !/^[0-9a-f]{64}$/.test(chunk.original?.sha256)
         || !Number.isInteger(chunk.patched?.bytes) || !/^[0-9a-f]{64}$/.test(chunk.patched?.sha256)
         || chunk.original.bytes !== original.bytes || chunk.original.sha256 !== original.sha256) {

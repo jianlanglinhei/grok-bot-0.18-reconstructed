@@ -1,8 +1,8 @@
 {
-  "name": "sand",
-  "productName": "Grok Bot",
+  "name": "onebot",
+  "productName": "onebot",
   "version": "0.18.0",
-  "description": "Grok Bot desktop agent",
+  "description": "onebot desktop agent",
   "author": "SpaceXAI",
   "homepage": "https://cursor.com",
   "private": true,

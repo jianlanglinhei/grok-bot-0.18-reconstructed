@@ -122,11 +122,11 @@ test("Router settings use the trusted backend and display recorded inference usa
   assert.match(codexDirect, /response\.output_text\.delta/);
   assert.match(codexDirect, /type: "function_call_output"/);
   assert.match(providers, /parameters: jsonSchema\(parameters\)/);
-  assert.match(providers, /You are Grok Bot, a warm, concise desktop assistant/);
-  assert.match(providers, /mcpServers: \{ grok_bot_plugins:/);
+  assert.match(providers, /You are onebot, a warm, concise desktop assistant/);
+  assert.match(providers, /mcpServers: \{ onebot_plugins:/);
   assert.match(providers, /recordRoutedUsage\(provider, usage\)/);
   assert.match(providers, /queryClaude/);
-  assert.match(providers, /tools: mcpServerUrl == null \? \[\] : \["mcp__grok_bot_plugins__\*"\]/);
+  assert.match(providers, /tools: mcpServerUrl == null \? \[\] : \["mcp__onebot_plugins__\*"\]/);
   assert.match(providers, /https:\/\/openrouter\.ai\/api\/v1/);
   assert.match(providers, /OpenRouter needs OPENROUTER_API_KEY/);
   assert.match(cursorSession, /routedProvider !== "cursor"/);

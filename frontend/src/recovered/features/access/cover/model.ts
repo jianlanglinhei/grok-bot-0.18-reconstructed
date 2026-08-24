@@ -66,45 +66,45 @@ export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
   if (access.state === "checking" || access.state === "unknown" || access.state === "granted") return null;
   if (access.reason === "teamPrivacyMode") {
     return {
-      title: "Your team's privacy mode blocks Grok Bot",
-      body: "Grok Bot can't run under Privacy Mode (Legacy). Ask a team admin to move the team off it.",
+      title: "Your team's privacy mode blocks onebot",
+      body: "onebot can't run under Privacy Mode (Legacy). Ask a team admin to move the team off it.",
       action: "See Details"
     };
   }
   if (access.reason === "teamSetupRequired") {
     return {
-      title: "Your team hasn't set up Grok Bot yet",
-      body: "A team admin has to finish Grok Bot setup before members can send messages.",
+      title: "Your team hasn't set up onebot yet",
+      body: "A team admin has to finish onebot setup before members can send messages.",
       action: "See Details"
     };
   }
   if (access.reason === "teamAccessRequired") {
     return {
-      title: "Your team hasn't given this account Grok Bot",
-      body: "Your team's settings withhold Grok Bot. A team admin can grant it.",
+      title: "Your team hasn't given this account onebot",
+      body: "Your team's settings withhold onebot. A team admin can grant it.",
       action: "Request Access"
     };
   }
   if (access.reason === "notOffered") {
-    return { title: "Grok Bot is not available for this account", body: "There's nothing to set up or purchase here.", action: null };
+    return { title: "onebot is not available for this account", body: "There's nothing to set up or purchase here.", action: null };
   }
   if (access.reason === "freeTrialAvailable") {
-    return { title: "Start a Grok Bot trial to send messages", body: "This account can try Grok Bot now.", action: "Start Trial" };
+    return { title: "Start a onebot trial to send messages", body: "This account can try onebot now.", action: "Start Trial" };
   }
   if (access.reason === "paywallIndividual") {
-    return { title: "Grok Bot needs an Ultra plan", body: "Upgrade to Ultra to send messages with Grok Bot.", action: "Get Ultra" };
+    return { title: "onebot needs an Ultra plan", body: "Upgrade to Ultra to send messages with onebot.", action: "Get Ultra" };
   }
   if (access.reason === "paywallTeamMember") {
-    return { title: "Grok Bot needs a Premium seat", body: "Ask a team admin to move this account to a Premium seat.", action: "Request Access" };
+    return { title: "onebot needs a Premium seat", body: "Ask a team admin to move this account to a Premium seat.", action: "Request Access" };
   }
   if (access.reason === "paywallTeamAdmin") {
-    return { title: "Grok Bot needs a Premium seat", body: "Move this account to a Premium seat to send messages.", action: "Manage Seats" };
+    return { title: "onebot needs a Premium seat", body: "Move this account to a Premium seat to send messages.", action: "Manage Seats" };
   }
   if (access.state === "unavailable") {
-    return { title: "Grok Bot is not available for this account", body: "Sending is off until this account is given access. Check what it needs on the web.", action: "Check Access" };
+    return { title: "onebot is not available for this account", body: "Sending is off until this account is given access. Check what it needs on the web.", action: "Check Access" };
   }
   if (access.state === "paymentRequired") {
-    return { title: "Grok Bot is not included in this plan", body: "Sending is off until this account has Grok Bot. Check the options on the web.", action: "Check Access" };
+    return { title: "onebot is not included in this plan", body: "Sending is off until this account has onebot. Check the options on the web.", action: "Check Access" };
   }
   return null;
 }
@@ -112,7 +112,7 @@ export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5544115
 export function accessCoverCopy(access: SandAccess): AccessCoverCopy {
   return accessNoticeCopy(access) ?? {
-    title: "Grok Bot isn’t available on this account yet",
+    title: "onebot isn’t available on this account yet",
     body: "Check what this account needs on the web.",
     action: "Check Access"
   };

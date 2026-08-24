@@ -55,7 +55,7 @@ export async function createRoutedMcpBridge(deps: {
     if (message.method === "notifications/initialized") { response.writeHead(202).end(); return; }
     const reply = (result: unknown) => { response.setHeader("content-type", "application/json"); response.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result })); };
     try {
-      if (message.method === "initialize") { reply({ protocolVersion: "2025-03-26", capabilities: { tools: { listChanged: false } }, serverInfo: { name: "grok-bot-plugins", version: "1" } }); return; }
+      if (message.method === "initialize") { reply({ protocolVersion: "2025-03-26", capabilities: { tools: { listChanged: false } }, serverInfo: { name: "onebot-plugins", version: "1" } }); return; }
       if (message.method === "tools/list") {
         const discovered = await deps.listTools();
         const rows = Array.isArray(discovered) ? discovered : [];
@@ -72,7 +72,7 @@ export async function createRoutedMcpBridge(deps: {
       }
       if (message.method === "tools/call") {
         const name = record(message.params)?.name, selected = typeof name === "string" ? tools.get(name) : undefined;
-        if (selected == null) { reply({ isError: true, content: [{ type: "text", text: `Unknown Grok Bot plugin tool: ${String(name)}` }] }); return; }
+        if (selected == null) { reply({ isError: true, content: [{ type: "text", text: `Unknown onebot plugin tool: ${String(name)}` }] }); return; }
         reply(mcpResult(await deps.callTool({ ...selected, args: record(message.params)?.arguments ?? {}, toolCallId: randomUUID() })));
         return;
       }

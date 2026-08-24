@@ -69,12 +69,12 @@ export const OPAQUE_FALLBACK_PATTERNS = Object.freeze([
   /opaque bundle fallback/i,
   /fall(?:ing)? back to (?:the )?(?:shipped|packaged|legacy) bundle/i,
   /loading .*src\/app/i,
-  /GROK_BOT_ALLOW_OPAQUE_FALLBACK/i
+  /ONEBOT_ALLOW_OPAQUE_FALLBACK/i
 ]);
 
 export const NATIVE_TEST_RUNTIME_ARGUMENTS = Object.freeze(["--use-mock-keychain"]);
 export const PRODUCTION_NATIVE_ENV_DENYLIST = Object.freeze([
-  "GROK_BOT_RECONSTRUCTED_DEV",
+  "ONEBOT_RECONSTRUCTED_DEV",
   "ELECTRON_RUN_AS_NODE",
   "VITE_DEV_SERVER_URL",
   "SAND_DEV_LOGIN",
@@ -566,7 +566,7 @@ export async function launchPackagedApp({ appPath, timeoutMs = 15_000, pollMs = 
     };
   }
   const { executable } = prerequisites;
-  const userDataRoot = await mkdtemp(path.join(tmpdir(), "grok-bot-native-e2e-"));
+  const userDataRoot = await mkdtemp(path.join(tmpdir(), "onebot-native-e2e-"));
   let output = "", child;
   try {
     const nativeEnvironment = createNativeTestEnvironment(process.env, userDataRoot);

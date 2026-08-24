@@ -11,7 +11,7 @@ export const NATIVE_OBSERVATION_CLASSES = Object.freeze({
   productionStartup: "admissible-production-startup-observation",
 });
 export const NATIVE_OBSERVATION_ENV_DENYLIST = Object.freeze([
-  "GROK_BOT_RECONSTRUCTED_DEV",
+  "ONEBOT_RECONSTRUCTED_DEV",
   "ELECTRON_RUN_AS_NODE",
   "VITE_DEV_SERVER_URL",
   "SAND_DEV_LOGIN",

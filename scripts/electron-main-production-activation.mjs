@@ -383,8 +383,8 @@ export async function assembleElectronMainProductionBindingManifest(manifestPath
 export function resolveElectronMainBindingManifestPath({ argv = process.argv, env = process.env } = {}) {
   const cliPath = typeof argv?.[2] === "string" ? argv[2].trim() : "";
   if (cliPath.length > 0) return cliPath;
-  const environmentPath = typeof env?.GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST === "string"
-    ? env.GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST.trim()
+  const environmentPath = typeof env?.ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST === "string"
+    ? env.ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST.trim()
     : "";
   return environmentPath.length > 0 ? environmentPath : null;
 }
@@ -394,7 +394,7 @@ export async function buildProductionElectronMainIfSupplied({ outputRoot, manife
   if (assembled.unboundBindings.length > 0) return {
     status: "incomplete-evidence-derived-manifest",
     clean: false,
-    blocker: `Electron-main clean activation remains fail-closed for exact residual bindings: ${assembled.unboundBindings.join(", ")}. Supply a schemaVersion 1 manifest for those slots through GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST; no default/native fallback is inferred.`,
+    blocker: `Electron-main clean activation remains fail-closed for exact residual bindings: ${assembled.unboundBindings.join(", ")}. Supply a schemaVersion 1 manifest for those slots through ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST; no default/native fallback is inferred.`,
     requiredBindings: requiredElectronMainProductionBindings,
     boundBindings: assembled.boundBindings,
     unboundBindings: assembled.unboundBindings,
@@ -458,7 +458,7 @@ export async function buildProductionElectronMainIfSupplied({ outputRoot, manife
 
 if (process.argv[1] != null && path.resolve(process.argv[1]) === scriptPath) {
   const manifestPath = resolveElectronMainBindingManifestPath();
-  if (!manifestPath) throw new Error("Pass an Electron-main binding manifest path or set GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST");
+  if (!manifestPath) throw new Error("Pass an Electron-main binding manifest path or set ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST");
   const validated = await assembleElectronMainProductionBindingManifest(manifestPath);
   if (validated.unboundBindings.length > 0) throw new Error(`Electron-main production binding manifest remains incomplete: ${validated.unboundBindings.join(",")}`);
   console.log(`Validated ${validated.bindings.length} exact Electron-main production bindings (${validated.manifestSha256}).`);

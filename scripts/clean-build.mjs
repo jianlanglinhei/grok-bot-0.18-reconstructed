@@ -215,8 +215,8 @@ export { cleanBuildDir, fidelityCleanBuildDir, fidelityRuntimeComposition, runti
 
 export async function buildCleanDistribution(options = {}) {
   const {
-    hostBindingManifest = process.env.GROK_BOT_HOST_BINDINGS_MANIFEST?.trim() || null,
-    electronMainBindingManifest = process.env.GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
+    hostBindingManifest = process.env.ONEBOT_HOST_BINDINGS_MANIFEST?.trim() || null,
+    electronMainBindingManifest = process.env.ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
       || (existsSync(defaultElectronMainBindingManifestPath) ? defaultElectronMainBindingManifestPath : null),
     ...baseOptions
   } = options;
@@ -226,8 +226,8 @@ export async function buildCleanDistribution(options = {}) {
 
 export async function buildFidelityDistribution(options = {}) {
   const {
-    hostBindingManifest = process.env.GROK_BOT_HOST_BINDINGS_MANIFEST?.trim() || null,
-    electronMainBindingManifest = process.env.GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
+    hostBindingManifest = process.env.ONEBOT_HOST_BINDINGS_MANIFEST?.trim() || null,
+    electronMainBindingManifest = process.env.ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
       || (existsSync(defaultElectronMainBindingManifestPath) ? defaultElectronMainBindingManifestPath : null),
     ...baseOptions
   } = options;
@@ -236,8 +236,8 @@ export async function buildFidelityDistribution(options = {}) {
 }
 
 export async function buildReconstructedAsar({
-  hostBindingManifest = process.env.GROK_BOT_HOST_BINDINGS_MANIFEST?.trim() || null,
-  electronMainBindingManifest = process.env.GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
+  hostBindingManifest = process.env.ONEBOT_HOST_BINDINGS_MANIFEST?.trim() || null,
+  electronMainBindingManifest = process.env.ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
     || (existsSync(defaultElectronMainBindingManifestPath) ? defaultElectronMainBindingManifestPath : null),
 } = {}) {
   const built = await buildBaseReconstructedAsar({ pack: false });
@@ -250,8 +250,8 @@ export async function buildReconstructedAsar({
 }
 
 export async function buildFidelityReconstructedAsar({
-  hostBindingManifest = process.env.GROK_BOT_HOST_BINDINGS_MANIFEST?.trim() || null,
-  electronMainBindingManifest = process.env.GROK_BOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
+  hostBindingManifest = process.env.ONEBOT_HOST_BINDINGS_MANIFEST?.trim() || null,
+  electronMainBindingManifest = process.env.ONEBOT_ELECTRON_MAIN_BINDINGS_MANIFEST?.trim()
     || (existsSync(defaultElectronMainBindingManifestPath) ? defaultElectronMainBindingManifestPath : null),
   buildRoot = fidelityBuildDir,
   stageRoot = fidelityStagedAppDir,

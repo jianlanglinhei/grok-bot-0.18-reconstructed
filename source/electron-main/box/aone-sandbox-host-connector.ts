@@ -463,7 +463,7 @@ async function createSandbox(args: {
     dynamicTemplate: { image: AONE_SANDBOX_IMAGE, entrypoint: "tail -f /dev/null" },
     timeoutSeconds: AONE_SANDBOX_TTL_SECONDS,
     readyTimeoutSeconds: 120,
-    metadata: { app: "onebot", runtime: "grok-bot-0.18-reconstructed" },
+    metadata: { app: "onebot", runtime: "onebot" },
     env: {
       SAND_SUPERVISOR_ENABLED: "1",
       SAND_BOX_AUTO_UPDATE: "0",

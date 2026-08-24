@@ -1,9 +1,9 @@
-# Grok Bot 0.18 — reconstructed and extended
+# onebot 0.18 — reconstructed and extended
 
-![Grok Bot Router settings with Codex selected and local usage totals](docs/assets/router-settings.png)
+![onebot Router settings with Codex selected and local usage totals](docs/assets/router-settings.png)
 
 This repository is an unofficial, source-oriented reconstruction of the
-publicly shipped Grok Bot 0.18.0 macOS app.
+publicly shipped onebot 0.18.0 macOS app.
 
 The project began as an attempt to understand how the desktop app was put
 together. It now contains readable TypeScript implementations of its Electron,
@@ -14,13 +14,13 @@ application.
 It also adds a few practical experiments:
 
 - an inference router for Cursor, Claude Code, Codex, and OpenRouter;
-- Grok Bot plugin/MCP tools across the routed providers;
+- onebot plugin/MCP tools across the routed providers;
 - local usage tracking for routed inference;
 - optional local Docker and Aone Sandbox runtimes in place of the remote box; and
 - a reconstructed settings surface integrated into the polished shipped UI.
 
 This is a hacking and research project, not Anysphere's original monorepo and
-not an official Grok Bot release. Names and module boundaries inferred from a
+not an official onebot release. Names and module boundaries inferred from a
 compiled application may differ from the original source.
 
 ## What is in the repository?
@@ -31,7 +31,7 @@ Windows x64 installers. It deliberately does **not** commit the extracted
 upstream application, build output, local credentials, or the large forensic
 recovery workspace.
 
-The public Grok Bot 0.18.0 application is instead treated as a pinned build
+The public onebot 0.18.0 application is instead treated as a pinned build
 input. During bootstrap, the toolchain downloads it, verifies its SHA-256
 identity, and extracts the pieces required to assemble the reconstruction.
 
@@ -84,10 +84,10 @@ Open **Settings → Router** to choose the backend used for new turns:
 
 | Provider | Authentication | Tool support |
 | --- | --- | --- |
-| Cursor | Existing Grok Bot/Cursor session | Native Grok Bot tools and plugins |
-| Claude Code | Existing Claude Code login | Routed Grok Bot MCP tools |
-| Codex | Existing local ChatGPT/Codex login | Direct Responses transport with Grok Bot tools |
-| OpenRouter | API key saved through the desktop secrets bridge | Grok Bot tool-execution loop |
+| Cursor | Existing onebot/Cursor session | Native onebot tools and plugins |
+| Claude Code | Existing Claude Code login | Routed onebot MCP tools |
+| Codex | Existing local ChatGPT/Codex login | Direct Responses transport with onebot tools |
+| OpenRouter | API key saved through the desktop secrets bridge | onebot tool-execution loop |
 
 Cursor is the default. Claude Code and Codex do not require separate API keys
 when their local clients are already authenticated. The application preserves
@@ -152,7 +152,7 @@ installed; reconnecting to the same live sandbox reuses them.
 
 ```sh
 git clone <your-repository-url>
-cd grok-bot-0.18-reconstructed
+cd onebot
 git lfs install
 git lfs pull
 npm ci
@@ -164,7 +164,7 @@ open "dist/onebot.app"
 
 `npm run bootstrap` first uses the Git LFS preservation copy of the pinned
 0.18.0 DMG. If that archive is absent, it falls back to the original public URL;
-`GROK_BOT_018_APP` can also point to an existing application copy. Bootstrap
+`ONEBOT_018_APP` can also point to an existing application copy. Bootstrap
 verifies both the DMG and `app.asar`, caches the matching Electron runtime, and
 hydrates the ignored `src/app/dist` build input.
 
@@ -201,7 +201,7 @@ polished shipped renderer
            ┌───────────┼───────────┐
         Cursor      Claude       Codex / OpenRouter
                        │
-                 Grok Bot MCP tools
+                 onebot MCP tools
 ```
 
 The main source areas are:
@@ -243,7 +243,7 @@ The app launches and the core reconstructed flows are usable, including routed
 inference, connected plugins, the local Docker sandbox, and Aone-backed shell
 and file operations. This is still an experimental reconstruction: it targets
 one pinned macOS/arm64 release, depends on external provider sessions, and does
-not promise compatibility with future Grok Bot versions.
+not promise compatibility with future onebot versions.
 
 For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). For the clean-history
 export procedure, see [docs/PUBLISHING.md](docs/PUBLISHING.md). Technical

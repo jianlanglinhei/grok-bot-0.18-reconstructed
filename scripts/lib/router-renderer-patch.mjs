@@ -9,11 +9,13 @@ const GENERAL_AFTER = 'Q=x==="general"?a.jsx(Te,{children:a.jsx(Sa,{auth:t})}):x
 const USAGE_BEFORE = 'Z=x==="usage"?a.jsx(Te,{children:a.jsx(Na,{})}):null';
 const USAGE_AFTER = 'Z=x==="usage"?a.jsx(Te,{children:a.jsx(RRouterUsage,{})}):null';
 const COMPONENT_ANCHOR = 'function Sa(s){';
+const ORIGINAL_PRODUCT_NAME = "Grok Bot";
+const PRODUCT_NAME = "onebot";
 const COMPONENT_SOURCE = String.raw`
 const RRouterProviders=[
   {value:"cursor",label:"Cursor",description:"Use your signed-in Cursor account.",kind:"account"},
-  {value:"claude-code",label:"Claude Code",description:"Use your existing Claude Code sign-in and Grok Bot's connected plugins.",kind:"local",localKey:"claude-code"},
-  {value:"codex",label:"Codex",description:"Use your existing ChatGPT sign-in from Codex with Grok Bot's connected plugins.",kind:"local",localKey:"codex"},
+  {value:"claude-code",label:"Claude Code",description:"Use your existing Claude Code sign-in and onebot's connected plugins.",kind:"local",localKey:"claude-code"},
+  {value:"codex",label:"Codex",description:"Use your existing ChatGPT sign-in from Codex with onebot's connected plugins.",kind:"local",localKey:"codex"},
   {value:"openrouter",label:"OpenRouter",description:"Route through your OpenRouter account and selected model.",kind:"key",secret:"OPENROUTER_API_KEY"}
 ],RRouterOptions=RRouterProviders.map(s=>({value:s.value,label:s.label})),RRouterEmptyUsage={requests:0,inputTokens:0,outputTokens:0,cacheReadTokens:0,cacheWriteTokens:0,lastUsedAt:null},RRouterInputClass="sand-9f619 sand-h8yej3 sand-5f5z56 sand-u97haq sand-lrnmfh sand-uve7l6 sand-16b7oty sand-1rgtt3y sand-o7x2bt sand-mkeg23 sand-1y0btm7 sand-qz0629 sand-1043rbw sand-13l7odt sand-1wd3ewq sand-jb2p0i sand-4z9k3i sand-frs9s4 sand-tt52l0 sand-1odjw0f sand-1t137rt sand-ltfok3";
 function RRouterState(){
@@ -28,7 +30,7 @@ function RRouterCredential({provider:s,state:e,keys:t,onSaved:n}){const[r,i]=de.
 function RRouterUsageRows({usage:s}){return a.jsxs("div",{children:[a.jsx(ie,{label:"Requests",variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:RRouterNumber(s.requests)})}),a.jsx(ie,{divided:!0,label:"Input tokens",variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:RRouterNumber(s.inputTokens)})}),a.jsx(ie,{divided:!0,label:"Output tokens",variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:RRouterNumber(s.outputTokens)})}),a.jsx(ie,{divided:!0,label:"Cache tokens",variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:RRouterNumber(s.cacheReadTokens+s.cacheWriteTokens)})}),a.jsx(ie,{divided:!0,label:"Last used",variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:s.lastUsedAt?new Date(s.lastUsedAt).toLocaleString():"Not used yet"})})]})}
 function RRuntimeToggle({active:s,busy:e,label:t,onClick:n}){return a.jsx("button",{"aria-checked":s,"aria-label":t,disabled:e,onClick:n,role:"switch",style:{appearance:"none",background:s?"var(--color-accent-primary, #4f8cff)":"rgba(255,255,255,.14)",border:0,borderRadius:999,cursor:e?"wait":"pointer",height:22,opacity:e?0.65:1,padding:2,position:"relative",transition:"background .15s ease",width:38},type:"button",children:a.jsx("span",{style:{background:"white",borderRadius:"50%",boxShadow:"0 1px 3px rgba(0,0,0,.35)",display:"block",height:18,transform:"translateX("+(s?16:0)+"px)",transition:"transform .15s ease",width:18}})})}
 function RBoxRuntime(){const[s,e]=de.useState({mode:"remote",status:null,error:null,busy:!0}),[t,n]=de.useState({configured:!1}),[r,i]=de.useState(""),[o,l]=de.useState(!1);de.useEffect(()=>{let c=!0;Promise.all([window.desktop.agent.getBoxRuntime(),window.desktop.agent.getAoneSandboxConfig()]).then(([d,u])=>{c&&(e({...d,error:null,busy:!1}),n(u))}).catch(d=>{c&&e(u=>({...u,error:String(d?.message??d),busy:!1}))});return()=>{c=!1}},[]);const c=async d=>{const u=s;e(f=>({...f,mode:d,busy:!0,error:null}));try{const f=await window.desktop.agent.setBoxRuntime(d);e({...f,error:null,busy:!1})}catch(f){e({...u,error:String(f?.message??f),busy:!1})}},d=async()=>{if(r.trim().length===0)return;l(!0);try{const u=await window.desktop.agent.saveAoneSandboxApiKey(r.trim());n(u);i("")}catch(u){e(f=>({...f,error:String(u?.message??u)}))}finally{l(!1)}};const u=s.mode==="local-docker",f=s.mode==="aone-sandbox";return a.jsxs("div",{children:[a.jsx(ie,{description:u?(s.status?.detail??"Shell, files and computer use run in a Docker container on this Mac."):"Turn off to use the selected remote runtime.",label:"Use local Docker VM",variant:"card",children:a.jsx(RRuntimeToggle,{active:u,busy:s.busy,label:"Use local Docker VM",onClick:()=>void c(u?"remote":"local-docker")})}),a.jsx(ie,{divided:!0,description:f?(s.status?.detail??"Shell, files and visual desktop run in a temporary Aone Sandbox."):"Create or reconnect a temporary Aone Sandbox using the local a1 login when available.",label:"Use Aone Sandbox",variant:"card",children:a.jsx(RRuntimeToggle,{active:f,busy:s.busy||!t.configured,label:"Use Aone Sandbox",onClick:()=>void c(f?"remote":"aone-sandbox")})}),a.jsx(ie,{divided:!0,description:"Optional when a1 ground is already logged in. Manually entered keys are stored in macOS encrypted storage.",label:"Aone API key",variant:"card",children:a.jsxs("div",{className:"sand-9f619 sand-78zum5 sand-6s0dn4 sand-h8yej3",style:{width:360},children:[a.jsx("input",{"aria-label":"Aone Sandbox API key",className:RRouterInputClass,disabled:o,onChange:p=>i(p.currentTarget.value),placeholder:t.configured?"Using saved key or a1 login":"Paste API key",style:{fontSize:13,height:34,minWidth:0,padding:"0 10px",width:270},type:"password",value:r}),a.jsx(oe,{disabled:o||r.trim().length===0,onClick:d,shape:"rectangular",size:"sm",variant:"secondary",children:o?"Saving…":"Save"})]})}),s.error?a.jsx(se,{as:"p",color:"red",size:"sm",children:s.error}):null]})}
-function RRouterPanel(){const[s,e]=RRouterState(),[t,n]=RRouterSecrets(),r=RRouterProviders.find(i=>i.value===s.provider)??RRouterProviders[0],i=s.usage?.providers?.[s.provider]??RRouterEmptyUsage,o=r.value==="codex"?"Uses the private ChatGPT login already stored by Codex on this Mac. Requests are made by Grok Bot directly.":r.kind==="local"?"Uses Claude Code's existing login on this Mac.":r.kind==="key"?"Stored securely with your other Grok Bot secrets.":"Uses the account already connected to Grok Bot.";return a.jsx(Te,{children:a.jsxs("div",{className:k("sand-settings-general","sand-9f619 sand-78zum5 sand-dt5ytf sand-3qzy4x"),children:[a.jsx(re,{title:"Routing",children:a.jsx(ie,{description:r.description,label:"Provider",variant:"card",children:a.jsx(ye,{"aria-label":"Routing provider",onValueChange:l=>{if(l!==null)void e(l)},options:RRouterOptions,placement:"bottom-end",size:"lg",value:s.provider,variant:"filled"})})}),a.jsx(re,{title:"Computer",children:a.jsx(RBoxRuntime,{})}),a.jsx(re,{title:r.kind==="key"?"OpenRouter account":"Account",children:a.jsx(ie,{description:o,label:r.kind==="key"?"API key":"Status",variant:"card",children:a.jsx(RRouterCredential,{provider:r,state:s,keys:t,onSaved:n})})}),s.error?a.jsx(se,{as:"p",color:"red",size:"sm",children:s.error}):null,a.jsx(re,{title:"Usage for "+r.label,children:a.jsx(RRouterUsageRows,{usage:i})})]})})}
+function RRouterPanel(){const[s,e]=RRouterState(),[t,n]=RRouterSecrets(),r=RRouterProviders.find(i=>i.value===s.provider)??RRouterProviders[0],i=s.usage?.providers?.[s.provider]??RRouterEmptyUsage,o=r.value==="codex"?"Uses the private ChatGPT login already stored by Codex on this Mac. Requests are made by onebot directly.":r.kind==="local"?"Uses Claude Code's existing login on this Mac.":r.kind==="key"?"Stored securely with your other onebot secrets.":"Uses the account already connected to onebot.";return a.jsx(Te,{children:a.jsxs("div",{className:k("sand-settings-general","sand-9f619 sand-78zum5 sand-dt5ytf sand-3qzy4x"),children:[a.jsx(re,{title:"Routing",children:a.jsx(ie,{description:r.description,label:"Provider",variant:"card",children:a.jsx(ye,{"aria-label":"Routing provider",onValueChange:l=>{if(l!==null)void e(l)},options:RRouterOptions,placement:"bottom-end",size:"lg",value:s.provider,variant:"filled"})})}),a.jsx(re,{title:"Computer",children:a.jsx(RBoxRuntime,{})}),a.jsx(re,{title:r.kind==="key"?"OpenRouter account":"Account",children:a.jsx(ie,{description:o,label:r.kind==="key"?"API key":"Status",variant:"card",children:a.jsx(RRouterCredential,{provider:r,state:s,keys:t,onSaved:n})})}),s.error?a.jsx(se,{as:"p",color:"red",size:"sm",children:s.error}):null,a.jsx(re,{title:"Usage for "+r.label,children:a.jsx(RRouterUsageRows,{usage:i})})]})})}
 function RRouterUsageSummary({provider:s,usage:e,current:t,divided:n}){const r=[RRouterNumber(e.requests)+" requests",RRouterNumber(e.inputTokens)+" input",RRouterNumber(e.outputTokens)+" output",RRouterNumber(e.cacheReadTokens+e.cacheWriteTokens)+" cached"].join(" · "),i=t?"Current route":e.lastUsedAt?new Date(e.lastUsedAt).toLocaleString():"Not used yet";return a.jsx(ie,{divided:n,description:r,label:s.label,variant:"card",children:a.jsx(se,{as:"span",color:t?"primary":"secondary",size:"sm",children:i})})}
 function RRouterUsage(){const[s]=RRouterState(),e=RRouterProviders.find(t=>t.value===s.provider)??RRouterProviders[0],t=RRouterProviders.filter(n=>n.value===s.provider||(s.usage?.providers?.[n.value]?.requests??0)>0);return a.jsxs("div",{className:k("sand-usage-section","sand-9f619 sand-78zum5 sand-dt5ytf sand-ou54vl"),children:[a.jsx(re,{title:"Current provider",children:a.jsx(ie,{description:e.description,label:e.label,variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:"Selected"})})}),a.jsx(re,{title:"Tracked activity",children:a.jsx("div",{children:t.map((n,r)=>a.jsx(RRouterUsageSummary,{provider:n,usage:s.usage?.providers?.[n.value]??RRouterEmptyUsage,current:n.value===s.provider,divided:r>0},n.value))})}),s.provider==="cursor"?a.jsx(Na,{}):null]})}
 `;
@@ -54,30 +56,47 @@ export function patchOriginalSettingsPanel(source) {
   return patched;
 }
 
+export function patchOriginalBranding(source) {
+  return source.replaceAll(ORIGINAL_PRODUCT_NAME, PRODUCT_NAME);
+}
+
 export async function applyOriginalRendererRouterPatch({ stageRoot }) {
+  const rendererRoot = path.join(stageRoot, "dist", "renderer");
   const assetsRoot = path.join(stageRoot, "dist", "renderer", "assets");
   const registryCandidates = [];
   const panelCandidates = [];
+  const assets = [];
   for (const name of await readdir(assetsRoot)) {
     if (!name.endsWith(".js")) continue;
     const target = path.join(assetsRoot, name);
     const source = await readFile(target, "utf8");
-    if (source.includes(REGISTRY_BEFORE)) registryCandidates.push({ name, target, source });
-    if (source.includes(COMPONENT_ANCHOR) && source.includes(GENERAL_BEFORE) && source.includes(USAGE_BEFORE)) panelCandidates.push({ name, target, source });
+    const candidate = { name, target, source };
+    assets.push(candidate);
+    if (source.includes(REGISTRY_BEFORE)) registryCandidates.push(candidate);
+    if (source.includes(COMPONENT_ANCHOR) && source.includes(GENERAL_BEFORE) && source.includes(USAGE_BEFORE)) panelCandidates.push(candidate);
   }
   if (registryCandidates.length !== 1 || panelCandidates.length !== 1) {
     throw new Error(`Expected one original Settings registry and panel chunk, found ${registryCandidates.length}/${panelCandidates.length}.`);
   }
+  const indexTarget = path.join(rendererRoot, "index.html");
+  const candidates = [{ name: "index.html", target: indexTarget, source: await readFile(indexTarget, "utf8") }, ...assets];
   const changes = [];
-  for (const [role, candidate, transform] of [
-    ["registry", registryCandidates[0], patchOriginalSettingsRegistry],
-    ["panel", panelCandidates[0], patchOriginalSettingsPanel],
-  ]) {
-    const patched = transform(candidate.source);
+  for (const candidate of candidates) {
+    let role = "branding";
+    let patched = candidate.source;
+    if (candidate.target === registryCandidates[0].target) {
+      role = "registry";
+      patched = patchOriginalSettingsRegistry(patched);
+    } else if (candidate.target === panelCandidates[0].target) {
+      role = "panel";
+      patched = patchOriginalSettingsPanel(patched);
+    }
+    patched = patchOriginalBranding(patched);
+    if (patched === candidate.source) continue;
     await writeFile(candidate.target, patched);
     changes.push({
       role,
-      path: `dist/renderer/assets/${candidate.name}`,
+      path: path.relative(stageRoot, candidate.target).split(path.sep).join("/"),
       original: { bytes: Buffer.byteLength(candidate.source), sha256: sha256(candidate.source) },
       patched: { bytes: Buffer.byteLength(patched), sha256: sha256(patched) },
     });
@@ -86,8 +105,8 @@ export async function applyOriginalRendererRouterPatch({ stageRoot }) {
     schemaVersion: 1,
     mode: "original-renderer-settings-extension",
     chunks: changes,
-    features: ["settings-router-provider", "settings-local-docker-vm", "settings-aone-sandbox", "usage-current-provider"],
-    transformations: ["settings-registry", "router-panel", "usage-panel"],
+    features: ["onebot-branding", "settings-router-provider", "settings-local-docker-vm", "settings-aone-sandbox", "usage-current-provider"],
+    transformations: ["product-branding", "settings-registry", "router-panel", "usage-panel"],
   };
   const provenancePath = path.join(stageRoot, "dist", "renderer-router-extension.json");
   await writeFile(provenancePath, `${JSON.stringify(record, null, 2)}\n`);

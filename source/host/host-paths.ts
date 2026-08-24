@@ -7,7 +7,7 @@ import { isPathWithin } from "../shared/node/paths.js";
 import { findSystemErrno } from "../shared/system-errno.js";
 
 export const SAND_DATA_ROOT_ENV = "SAND_DATA_ROOT";
-export const SAND_PRODUCTION_DATA_DIRNAME = ".grokbot";
+export const SAND_PRODUCTION_DATA_DIRNAME = ".onebot";
 export const SAND_USER_DATA_DIR_ENV = "SAND_USER_DATA_DIR";
 export const SAND_DATA_DIRNAME = "sand-data";
 export const USER_DATA_DIR_FLAG = "--user-data-dir";
@@ -75,7 +75,7 @@ export function getSandRootDir(homeDir = homedir()): string {
 export function reanchorSandPath(storedPath: string): string {
   const root = getSandRootDir();
   if (isPathWithin(root, storedPath, { isInclusive: true })) return storedPath;
-  const match = /(?:[/\\]\.cursor[/\\]sand(?:-[^/\\]+)?|[/\\]\.grokbot)[/\\](.+)$/.exec(storedPath);
+  const match = /(?:[/\\]\.cursor[/\\]sand(?:-[^/\\]+)?|[/\\]\.onebot)[/\\](.+)$/.exec(storedPath);
   if (match?.[1] == null) return storedPath;
   const segments = match[1].split(/[/\\]+/);
   if (segments.some((segment) => segment === "." || segment === "..")) return storedPath;

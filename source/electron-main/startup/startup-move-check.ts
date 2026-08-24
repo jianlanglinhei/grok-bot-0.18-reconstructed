@@ -73,9 +73,9 @@ export async function runStartupMoveCheck(
     confirmMove: async () => {
       const result = await deps.dialog.showMessageBox({
         type: "question",
-        title: "Move Grok Bot to Applications",
-        message: "Move Grok Bot to the Applications folder?",
-        detail: "Grok Bot cannot install updates from its current location. It will reopen after moving.",
+        title: "Move onebot to Applications",
+        message: "Move onebot to the Applications folder?",
+        detail: "onebot cannot install updates from its current location. It will reopen after moving.",
         buttons: ["Move to Applications", "Not Now"],
         defaultId: 0,
         cancelId: 1,
@@ -86,9 +86,9 @@ export async function runStartupMoveCheck(
       deps.reportFailure?.("startup", "move-to-applications", error);
       await deps.dialog.showMessageBox({
         type: "error",
-        title: "Couldn't Move Grok Bot",
-        message: "Grok Bot couldn't move to Applications",
-        detail: "Move Grok Bot to the Applications folder manually, then reopen Grok Bot",
+        title: "Couldn't Move onebot",
+        message: "onebot couldn't move to Applications",
+        detail: "Move onebot to the Applications folder manually, then reopen onebot",
         buttons: ["OK"],
         defaultId: 0,
       });

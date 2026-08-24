@@ -56,7 +56,7 @@ test("direct Codex Responses transport streams text without an SDK reader", asyn
   assert.equal(requests[0].stream, true);
 });
 
-test("direct Codex Responses transport executes Grok Bot tools and continues with the exact call id", async () => {
+test("direct Codex Responses transport executes onebot tools and continues with the exact call id", async () => {
   const { streamCodexDirectResponses } = await loadModule();
   const requests = [];
   let toolExecution = null;
