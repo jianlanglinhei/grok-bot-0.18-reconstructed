@@ -5,6 +5,7 @@ import {
   buildDir,
   builtAsar,
   builtAsarUnpacked,
+  reconstructedName,
   repoRoot,
   sourceAppDir,
   stagedAppDir
@@ -14,6 +15,8 @@ import { resolveRuntimeApp } from "./runtime.mjs";
 
 export const reconstructedUpdaterGuard = [
   "// Reconstructed-build guard: do not consume official update or telemetry services.",
+  "// Keep this fork's host, daemon, and session state isolated from the official Grok Bot app.",
+  "process.env.SAND_DATA_ROOT ??= require(\"node:path\").join(require(\"node:os\").homedir(), \".onebot\");",
   "process.env.SAND_DISABLE_UPDATES ??= \"1\";",
   "process.env.SAND_DISABLE_SENTRY ??= \"1\";",
   "process.env.SAND_DISABLE_TELEMETRY ??= \"1\";",
@@ -145,13 +148,15 @@ export async function buildAsar({
   await mkdir(buildRoot, { recursive: true });
   await cp(sourceAppDir, stageRoot, { recursive: true, dereference: false, preserveTimestamps: true });
 
+  const stagedPackagePath = path.join(stageRoot, "package.json");
+  const stagedPackage = JSON.parse(await readFile(stagedPackagePath, "utf8"));
   if (process.env.GROK_BOT_BUILD_DEV_APP === "1") {
-    const stagedPackagePath = path.join(stageRoot, "package.json");
-    const stagedPackage = JSON.parse(await readFile(stagedPackagePath, "utf8"));
     stagedPackage.sandLab = true;
     stagedPackage.productName = "Grok Bot 0.18 Dev";
-    await writeFile(stagedPackagePath, `${JSON.stringify(stagedPackage, null, 2)}\n`);
+  } else {
+    stagedPackage.productName = reconstructedName;
   }
+  await writeFile(stagedPackagePath, `${JSON.stringify(stagedPackage, null, 2)}\n`);
 
   for (const directory of ["deps", "native"]) {
     const source = path.join(runtimeUnpacked, directory);

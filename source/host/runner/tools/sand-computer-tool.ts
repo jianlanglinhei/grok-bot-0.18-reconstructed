@@ -2,6 +2,16 @@ import { Buffer } from "node:buffer";
 import { buildHostShellArgs } from "../../box/box-shell-command.js";
 import { navigationProbeCommand } from "../sand-action-audit.js";
 import { SAND_BOX_NO_MONITOR_AVAILABLE_MESSAGE } from "../../ports/box.js";
+import { createStringResult } from "../../../packages/chat-inference/prompt-executor.js";
+import { createZodAgentTool, withSafeParsedArgs } from "../../../packages/agent/tools/common.js";
+import { ToolCall } from "../../../packages/proto/generated/agent/v1/agent_pb.js";
+import {
+  ComputerUseSuccess as GeneratedComputerUseSuccess,
+  ComputerUseError as GeneratedComputerUseError,
+  ComputerUseResult as GeneratedComputerUseResult,
+  ComputerUseToolCall as GeneratedComputerUseToolCall,
+  Coordinate as GeneratedCoordinate,
+} from "../../../packages/proto/generated/agent/v1/computer_use_tool_pb.js";
 import { shellExecutorResource } from "../../../packages/agent-exec/shell.js";
 import type { ResourceAccessor } from "../../../packages/agent-exec/resource-provider.js";
 import type { RemoteExecManager } from "../../../packages/agent-exec/remote.js";
@@ -14,6 +24,7 @@ import {
   computeSandComputerPageStateIdentity,
   SandComputerAutoReviewBlockedError,
   type SandComputerAutoReviewOptions,
+  type ComputerAction as AutoReviewComputerAction,
   type BoxIdentity,
 } from "../sand-computer-auto-review.js";
 import type { SandAutoReviewMode } from "../sand-auto-review.js";
@@ -23,7 +34,7 @@ export const MOUSE_BUTTONS = { left: "LEFT", right: "RIGHT", middle: "MIDDLE" } 
 export const SCROLL_DIRECTIONS = { up: "UP", down: "DOWN", left: "LEFT", right: "RIGHT" } as const;
 export const SAND_COMPUTER_MAX_WAIT_MS = 30_000;
 export const SAND_COMPUTER_MAX_FOLLOW_UP_ACTIONS = 9;
-export const COMPUTER_ACTIONS = ["screenshot", "click", "move", "drag", "type", "key", "scroll", "wait"] as const;
+export const COMPUTER_ACTIONS = ["screenshot", "open", "open_url", "click", "move", "drag", "type", "key", "scroll", "wait"] as const;
 export type ComputerActionName = typeof COMPUTER_ACTIONS[number];
 
 export interface ComputerActionArgs {
@@ -35,6 +46,7 @@ export interface ComputerActionArgs {
   readonly y2?: number;
   readonly path?: readonly { readonly x: number; readonly y: number }[];
   readonly text?: string;
+  readonly url?: string;
   readonly key?: string;
   readonly button?: keyof typeof MOUSE_BUTTONS;
   readonly count?: number;
@@ -50,7 +62,9 @@ const actionCoreShape = {
   x: z.number().int().optional(), y: z.number().int().optional(),
   x2: z.number().int().optional(), y2: z.number().int().optional(),
   path: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
-  text: z.string().optional(), key: z.string().optional(),
+  text: z.string().optional(),
+  url: z.string().url().regex(/^https?:\/\//u, "URL must use http or https.").optional(),
+  key: z.string().optional(),
   button: z.enum(["left", "right", "middle"]).optional(),
   count: z.number().int().min(1).max(3).optional(),
   direction: z.enum(["up", "down", "left", "right"]).optional(),
@@ -62,6 +76,9 @@ function validateAction(args: z.infer<z.ZodObject<typeof actionCoreShape>>, ctx:
   if (args.action === "drag" && !(args.path != null && args.path.length >= 2)
     && (args.x == null || args.y == null || args.x2 == null || args.y2 == null)) {
     ctx.addIssue({ code: "custom", message: "Drag requires x, y, x2, and y2 or a path with at least 2 points." });
+  }
+  if ((args.action === "open" || args.action === "open_url") && args.url == null) {
+    ctx.addIssue({ code: "custom", path: ["url"], message: `${args.action} requires an http or https URL.` });
   }
 }
 
@@ -94,6 +111,11 @@ export function toExactActionArgs(args: ComputerActionArgs): ComputerActionArgs 
   return exact;
 }
 
+function toAutoReviewAction(args: ComputerActionArgs): AutoReviewComputerAction {
+  if (args.action === "open" || args.action === "open_url") return { action: "type", text: args.url ?? "" };
+  return toExactActionArgs(args) as AutoReviewComputerAction;
+}
+
 export function dragPath(args: ComputerActionArgs): readonly { x: number; y: number }[] | undefined {
   if (args.path != null && args.path.length >= 2) return args.path;
   if (args.x == null || args.y == null || args.x2 == null || args.y2 == null) return undefined;
@@ -109,6 +131,9 @@ function coordinate(x: number | undefined, y: number | undefined): { x: number; 
 }
 
 export function toAction(args: ComputerActionArgs): ComputerProtocolAction {
+  if (args.action === "open" || args.action === "open_url") {
+    throw new SandToolInputError(`${args.action} expands to multiple computer actions.`);
+  }
   switch (args.action) {
     case "screenshot": return { action: { case: "screenshot", value: {} } };
     case "click": return { action: { case: "click", value: {
@@ -131,6 +156,18 @@ export function toAction(args: ComputerActionArgs): ComputerProtocolAction {
     } } };
     case "wait": return { action: { case: "wait", value: { durationMs: args.durationMs ?? 1_000 } } };
   }
+}
+
+export function toActions(args: ComputerActionArgs): readonly ComputerProtocolAction[] {
+  if (args.action !== "open" && args.action !== "open_url") return [toAction(args)];
+  const url = args.url;
+  if (url == null) throw new SandToolInputError(`${args.action} requires an http or https URL.`);
+  return [
+    toAction({ action: "key", key: "CTRL+L" }),
+    toAction({ action: "type", text: url }),
+    toAction({ action: "key", key: "ENTER" }),
+    toAction({ action: "wait", durationMs: 2_000 }),
+  ];
 }
 
 export type ReportedComputerAction =
@@ -177,6 +214,23 @@ export function describeOutcome(result: ComputerUseResult, operation: "screensho
   if (value.screenshotPath != null && value.screenshotPath.length > 0) lines.push(`Screenshot saved to ${value.screenshotPath}.`);
   if (value.cursorPosition != null) lines.push(`Cursor is at (${value.cursorPosition.x}, ${value.cursorPosition.y}).`);
   return lines.join("\n");
+}
+
+function toGeneratedToolResult(result: ComputerUseResult): InstanceType<typeof GeneratedComputerUseResult> {
+  if (result.result.case === "success") {
+    const value = result.result.value as ComputerUseSuccess;
+    return new GeneratedComputerUseResult({ result: { case: "success", value: new GeneratedComputerUseSuccess({
+      ...(value.screenshot == null ? {} : { screenshot: value.screenshot }),
+      ...(value.screenshotPath == null ? {} : { screenshotPath: value.screenshotPath }),
+      ...(value.cursorPosition == null ? {} : { cursorPosition: new GeneratedCoordinate(value.cursorPosition) }),
+    }) } });
+  }
+  if (result.result.case === "error") {
+    return new GeneratedComputerUseResult({ result: { case: "error", value: new GeneratedComputerUseError({
+      error: (result.result.value as { error: string }).error,
+    }) } });
+  }
+  return new GeneratedComputerUseResult();
 }
 
 export interface ComputerToolDependencies<Context = unknown> {
@@ -234,35 +288,54 @@ export async function executeAndPersistComputerUse<Context>(context: Context, de
   return result;
 }
 
-export function createScreenshotTool<Context>(deps: ComputerToolDependencies<Context>) {
-  return {
-    id: "OPENAI_COMPUTER_USE", name: "Screenshot", parameters: screenshotParameters,
-    async execute(_args: Record<string, never>, meta: { context: Context; toolCallId?: string }): Promise<ComputerUseResult> {
-      return executeAndPersistComputerUse(meta.context, deps, {
-        toolCallId: meta.toolCallId ?? "", actions: [toAction({ action: "screenshot" })],
-      });
+export function createScreenshotTool(deps: ComputerToolDependencies<unknown>) {
+  const execute = async (
+    ctx: Context,
+    _interactionHandler: unknown,
+    _args: Record<string, never>,
+    meta: { readonly toolCallId: string },
+  ): Promise<InstanceType<typeof GeneratedComputerUseResult>> => toGeneratedToolResult(
+    await executeAndPersistComputerUse(ctx, deps, {
+      toolCallId: meta.toolCallId,
+      actions: [toAction({ action: "screenshot" })],
+    }),
+  );
+  return createZodAgentTool("OPENAI_COMPUTER_USE", {
+    name: "Screenshot",
+    descriptionGenerator: () => "Capture the current visible Aone Sandbox desktop.",
+    parameters: screenshotParameters,
+    execute: withSafeParsedArgs(
+      screenshotParameters,
+      execute,
+      createComputerUseToolCall(),
+    ),
+    async render(_context: Context, output: InstanceType<typeof GeneratedComputerUseResult>) {
+      return createStringResult(describeOutcome(output as unknown as ComputerUseResult, "screenshot"));
     },
-    render: (output: ComputerUseResult) => ({ content: describeOutcome(output, "screenshot") }),
-  };
+    serializeError: serializeComputerUseError,
+  });
 }
 
-export function createComputerTool<Context>(deps: ComputerToolDependencies<Context>) {
+export function createComputerTool(deps: ComputerToolDependencies<unknown>) {
   const parameters = buildComputerParameters(deps.autoReview);
-  return {
-    id: "OPENAI_COMPUTER_USE", name: "Computer", parameters,
-    async execute(raw: unknown, meta: { context: Context; toolCallId?: string; signal?: AbortSignal; stateHandler?: unknown; workspacePaths?: readonly string[] }): Promise<ComputerUseResult> {
-      const parsed = parameters.parse(raw) as ComputerActionArgs;
+  const execute = async (
+    ctx: Context,
+    _interactionHandler: unknown,
+    raw: unknown,
+    meta: { readonly toolCallId: string; readonly signal?: AbortSignal; readonly stateHandler?: unknown; readonly workspacePaths?: readonly string[] },
+  ): Promise<InstanceType<typeof GeneratedComputerUseResult>> => {
+      const parsed = raw as ComputerActionArgs;
       const { then, ...primary } = parsed;
       const sequence = [primary, ...(then ?? [])];
-      const actions = sequence.map(toAction);
+      const actions = sequence.flatMap(toActions);
       if (sequence.at(-1)?.action !== "screenshot") actions.push(toAction({ action: "screenshot" }));
       if (deps.autoReview != null) {
         await runSandComputerAutoReviewPreflight({
-          ctx: meta.context as unknown as import("../../../packages/context/core.js").Context,
+          ctx: ctx as unknown as import("../../../packages/context/core.js").Context,
           resourceAccessor: deps.resourceAccessor as ResourceAccessor<RemoteExecManager>,
-          exactAction: toExactActionArgs(parsed),
+          exactAction: toAutoReviewAction(parsed),
           ...(parsed.description == null ? {} : { description: parsed.description }),
-          toolCallId: meta.toolCallId ?? "",
+          toolCallId: meta.toolCallId,
           ...(meta.stateHandler === undefined ? {} : { stateHandler: meta.stateHandler }),
           ...(meta.workspacePaths === undefined ? {} : { workspacePaths: meta.workspacePaths }),
           ...(meta.signal == null ? {} : { signal: meta.signal }),
@@ -280,12 +353,41 @@ export function createComputerTool<Context>(deps: ComputerToolDependencies<Conte
       const reported = reportedBatchPosition(sequence);
       if (reported != null) deps.onComputerAction?.(reported);
       const description = parsed.description?.trim();
-      return executeAndPersistComputerUse(meta.context, deps, {
-        toolCallId: meta.toolCallId ?? "", actions,
+      return toGeneratedToolResult(await executeAndPersistComputerUse(ctx, deps, {
+        toolCallId: meta.toolCallId, actions,
         ...(deps.isUnicodeTypingEnabled?.() === true ? { bindUnmappedCharacters: true } : {}),
         ...(description == null || description.length === 0 ? {} : { description }),
-      });
-    },
-    render: (output: ComputerUseResult) => ({ content: describeOutcome(output, "computer") }),
+      }));
   };
+  return createZodAgentTool("OPENAI_COMPUTER_USE", {
+    name: "Computer",
+    descriptionGenerator: () => "Control the visible Aone Sandbox desktop with mouse, keyboard, scrolling, waiting, and screenshots.",
+    parameters,
+    execute: withSafeParsedArgs(parameters, execute, createComputerUseToolCall()),
+    async render(_context: Context, output: InstanceType<typeof GeneratedComputerUseResult>) {
+      return createStringResult(describeOutcome(output as unknown as ComputerUseResult, "computer"));
+    },
+    serializeError: serializeComputerUseError,
+  });
+}
+
+function createComputerUseToolCall(
+  result?: InstanceType<typeof GeneratedComputerUseResult>,
+): ToolCall {
+  return new ToolCall({
+    tool: {
+      case: "computerUseToolCall",
+      value: new GeneratedComputerUseToolCall({ ...(result === undefined ? {} : { result }) }),
+    },
+  });
+}
+
+function serializeComputerUseError(error: unknown): ToolCall {
+  const message = error instanceof Error ? error.message : String(error);
+  return createComputerUseToolCall(new GeneratedComputerUseResult({
+    result: {
+      case: "error",
+      value: new GeneratedComputerUseError({ error: message }),
+    },
+  }));
 }

@@ -57,6 +57,13 @@ import {
   ShellTimeout,
   type ShellArgs,
 } from "../packages/proto/generated/agent/v1/shell_exec_pb.js";
+import {
+  ComputerUseError,
+  ComputerUseResult,
+  ComputerUseSuccess,
+  Coordinate,
+  type ComputerUseArgs,
+} from "../packages/proto/generated/agent/v1/computer_use_tool_pb.js";
 
 // Recovered generated descriptors predate `satisfies ServiceType` and therefore
 // widen MethodKind during TypeScript reconstruction. Re-declaring only the
@@ -123,6 +130,23 @@ class PathRejectedError extends Error {}
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeXdotoolKey(value: string): string {
+  const aliases: Record<string, string> = {
+    ENTER: "Return",
+    RETURN: "Return",
+    ESC: "Escape",
+    SPACE: "space",
+    BACKSPACE: "BackSpace",
+    DELETE: "Delete",
+    TAB: "Tab",
+    HOME: "Home",
+    END: "End",
+    PAGEUP: "Prior",
+    PAGEDOWN: "Next",
+  };
+  return value.split("+").map(part => aliases[part.trim().toUpperCase()] ?? part.trim().toLowerCase()).join("+");
 }
 
 function yamlString(value: string): string {
@@ -241,6 +265,9 @@ class BoxExecRuntime {
           break;
         case "writeShellStdinArgs":
           yield client(request.id, request.execId, { case: "writeShellStdinResult", value: await this.writeStdin(request.message.value) });
+          break;
+        case "computerUseArgs":
+          yield client(request.id, request.execId, { case: "computerUseResult", value: await this.computerUse(request.message.value, signal) });
           break;
         default:
           yield thrown(request.id, `Unsupported ExecServerMessage case: ${request.message.case ?? "unset"}`, "BOX_EXEC_UNSUPPORTED");
@@ -398,6 +425,98 @@ class BoxExecRuntime {
     return new WriteShellStdinResult({ result: { case: "success", value: new WriteShellStdinSuccess({ shellId: args.shellId, terminalFileLengthBeforeInputWritten: before }) } });
   }
 
+  async computerUse(args: ComputerUseArgs, signal: AbortSignal): Promise<ComputerUseResult> {
+    const startedAt = Date.now();
+    let actionCount = 0;
+    let screenshot: string | undefined;
+    let cursorPosition: Coordinate | undefined;
+    try {
+      for (const item of args.actions) {
+        if (signal.aborted) throw new Error("Computer action was aborted.");
+        const action = item.action;
+        switch (action.case) {
+          case "mouseMove": {
+            const point = action.value.coordinate;
+            if (point == null) throw new Error("Mouse move requires coordinates.");
+            await this.runDesktopCommand(["mousemove", "--sync", String(point.x), String(point.y)], signal);
+            break;
+          }
+          case "click": {
+            const point = action.value.coordinate;
+            if (point != null) await this.runDesktopCommand(["mousemove", "--sync", String(point.x), String(point.y)], signal);
+            const button = action.value.button === 2 ? 3 : action.value.button === 3 ? 2 : 1;
+            await this.runDesktopCommand(["click", "--repeat", String(Math.max(1, action.value.count || 1)), String(button)], signal);
+            break;
+          }
+          case "mouseDown":
+            await this.runDesktopCommand(["mousedown", String(action.value.button === 2 ? 3 : action.value.button === 3 ? 2 : 1)], signal);
+            break;
+          case "mouseUp":
+            await this.runDesktopCommand(["mouseup", String(action.value.button === 2 ? 3 : action.value.button === 3 ? 2 : 1)], signal);
+            break;
+          case "drag": {
+            const [first, ...rest] = action.value.path;
+            if (first == null || rest.length === 0) throw new Error("Drag requires at least two points.");
+            const button = action.value.button === 2 ? 3 : action.value.button === 3 ? 2 : 1;
+            await this.runDesktopCommand(["mousemove", "--sync", String(first.x), String(first.y)], signal);
+            await this.runDesktopCommand(["mousedown", String(button)], signal);
+            try {
+              for (const point of rest) await this.runDesktopCommand(["mousemove", "--sync", String(point.x), String(point.y)], signal);
+            } finally {
+              await this.runDesktopCommand(["mouseup", String(button)], signal);
+            }
+            break;
+          }
+          case "scroll": {
+            const point = action.value.coordinate;
+            if (point != null) await this.runDesktopCommand(["mousemove", "--sync", String(point.x), String(point.y)], signal);
+            const button = action.value.direction === 1 ? 4 : action.value.direction === 3 ? 6 : action.value.direction === 4 ? 7 : 5;
+            await this.runDesktopCommand(["click", "--repeat", String(Math.max(1, Math.abs(action.value.amount || 3))), String(button)], signal);
+            break;
+          }
+          case "type":
+            await this.runDesktopCommand(["type", "--clearmodifiers", "--delay", "1", "--", action.value.text], signal);
+            break;
+          case "key":
+            await this.runDesktopCommand(["key", "--clearmodifiers", normalizeXdotoolKey(action.value.key)], signal);
+            break;
+          case "wait":
+            await new Promise<void>((resolve, reject) => {
+              const timer = setTimeout(resolve, Math.max(0, action.value.durationMs));
+              signal.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("Computer action was aborted.")); }, { once: true });
+            });
+            break;
+          case "screenshot":
+            screenshot = await this.captureDesktop(signal);
+            break;
+          case "cursorPosition": {
+            const output = await this.runDesktopCommand(["getmouselocation", "--shell"], signal);
+            const x = Number(/^X=(\d+)$/mu.exec(output)?.[1] ?? 0);
+            const y = Number(/^Y=(\d+)$/mu.exec(output)?.[1] ?? 0);
+            cursorPosition = new Coordinate({ x, y });
+            break;
+          }
+          case undefined:
+            throw new Error("Computer action is unset.");
+        }
+        actionCount += 1;
+      }
+      return new ComputerUseResult({ result: { case: "success", value: new ComputerUseSuccess({
+        actionCount,
+        durationMs: Date.now() - startedAt,
+        ...(screenshot == null ? {} : { screenshot }),
+        ...(cursorPosition == null ? {} : { cursorPosition }),
+      }) } });
+    } catch (error) {
+      return new ComputerUseResult({ result: { case: "error", value: new ComputerUseError({
+        error: errorText(error),
+        actionCount,
+        durationMs: Date.now() - startedAt,
+        ...(screenshot == null ? {} : { screenshot }),
+      }) } });
+    }
+  }
+
   async stop(): Promise<void> {
     for (const child of this.#foreground) this.kill(child);
     for (const process of this.#background.values()) this.kill(process.child);
@@ -407,6 +526,50 @@ class BoxExecRuntime {
 
   private spawnShell(command: string, cwd: string): ChildProcessWithoutNullStreams {
     return spawn("/bin/sh", ["-lc", command], { cwd, env: this.#environment, detached: process.platform !== "win32", stdio: "pipe" });
+  }
+
+  private async runDesktopCommand(args: readonly string[], signal: AbortSignal): Promise<string> {
+    const child = spawn("xdotool", [...args], { env: { ...this.#environment, DISPLAY: this.#environment.DISPLAY || ":0" }, stdio: "pipe" });
+    this.#foreground.add(child);
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", data => { stdout += String(data); });
+    child.stderr.on("data", data => { stderr += String(data); });
+    const abort = () => this.kill(child);
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      const code = await new Promise<number>((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", value => resolve(value ?? 1));
+      });
+      if (code !== 0) throw new Error(stderr.trim() || `xdotool exited with code ${code}.`);
+      return stdout;
+    } finally {
+      signal.removeEventListener("abort", abort);
+      this.#foreground.delete(child);
+    }
+  }
+
+  private async captureDesktop(signal: AbortSignal): Promise<string> {
+    const child = spawn("import", ["-window", "root", "png:-"], { env: { ...this.#environment, DISPLAY: this.#environment.DISPLAY || ":0" }, stdio: "pipe" });
+    this.#foreground.add(child);
+    const stdout: Buffer[] = [];
+    let stderr = "";
+    child.stdout.on("data", data => { stdout.push(Buffer.from(data)); });
+    child.stderr.on("data", data => { stderr += String(data); });
+    const abort = () => this.kill(child);
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      const code = await new Promise<number>((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", value => resolve(value ?? 1));
+      });
+      if (code !== 0) throw new Error(stderr.trim() || `import exited with code ${code}.`);
+      return Buffer.concat(stdout).toString("base64");
+    } finally {
+      signal.removeEventListener("abort", abort);
+      this.#foreground.delete(child);
+    }
   }
 
   private kill(child: ChildProcessWithoutNullStreams): void {
@@ -467,7 +630,7 @@ export async function startBoxExecDaemon(options: BoxExecDaemonOptions): Promise
     routes(router) {
       router.service(BoxControlService, {
         ping: async () => new PingResponse(),
-        getCapabilities: async () => new GetCapabilitiesResponse({ computerUseSupported: false, installPluginArtifactSupported: false }),
+        getCapabilities: async () => new GetCapabilitiesResponse({ computerUseSupported: true, installPluginArtifactSupported: false }),
         updateEnvironmentVariables: async request => new UpdateEnvironmentVariablesResponse(runtime.applyEnvironment(request)),
         loadMcpServers: async () => new LoadMcpServersResponse(),
       });

@@ -1,3 +1,6 @@
+import type { ZodTypeAny } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
 type Loose = Record<string, any>;
 
 export type CodexDirectUsage = {
@@ -16,6 +19,7 @@ export type CodexDirectTool = {
 
 export type CodexDirectEvent =
   | { readonly type: "text-delta"; readonly delta: string }
+  | { readonly type: "tool-call"; readonly toolCallId: string; readonly toolName: string; readonly args: unknown }
   | { readonly type: "done"; readonly text: string; readonly responseId: string; readonly usage: CodexDirectUsage };
 
 export type CodexDirectOptions = {
@@ -97,13 +101,41 @@ function toolCalls(output: readonly unknown[]): Loose[] {
   });
 }
 
+function stripSchemaArtifacts(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(stripSchemaArtifacts);
+  const {
+    $schema: _schema,
+    default: _default,
+    definitions: _definitions,
+    markdownDescription: _markdown,
+    ...rest
+  } = value as Loose;
+  return Object.fromEntries(
+    Object.entries(rest).map(([key, child]) => [key, stripSchemaArtifacts(child)]),
+  );
+}
+
+export function normalizeCodexToolParameters(parameters: unknown): unknown {
+  const candidate = record(parameters);
+  if (
+    candidate == null
+    || candidate._def == null
+    || typeof candidate.safeParse !== "function"
+  ) return parameters;
+  return stripSchemaArtifacts(zodToJsonSchema(
+    parameters as ZodTypeAny,
+    { $refStrategy: "none" },
+  ));
+}
+
 function requestTools(tools: readonly CodexDirectTool[] | undefined): Loose[] | undefined {
   if (tools == null || tools.length === 0) return undefined;
   return tools.map(tool => ({
     type: "function",
     name: tool.name,
     ...(tool.description == null ? {} : { description: tool.description }),
-    parameters: tool.parameters,
+    parameters: normalizeCodexToolParameters(tool.parameters),
     strict: false,
   }));
 }
@@ -159,7 +191,26 @@ export async function* streamCodexDirectResponses(options: CodexDirectOptions): 
       yield { type: "done", text, responseId, usage };
       return;
     }
-    if (options.executeTool == null) throw new Error("Codex requested a tool but Grok Bot did not provide an executor.");
+    if (options.executeTool == null) {
+      for (const call of calls) {
+        let args: unknown = {};
+        try {
+          args = typeof call.arguments === "string" && call.arguments.length > 0
+            ? JSON.parse(call.arguments)
+            : {};
+        } catch {
+          args = call.arguments ?? {};
+        }
+        yield {
+          type: "tool-call",
+          toolCallId: call.call_id,
+          toolName: call.name,
+          args,
+        };
+      }
+      yield { type: "done", text, responseId, usage };
+      return;
+    }
 
     const results: Loose[] = [];
     for (const call of calls) {

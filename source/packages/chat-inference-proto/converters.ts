@@ -189,10 +189,11 @@ function getResponsesMetadataFromProviderOptions(message: Loose): { modelProvide
 }
 
 function agentToolToProto(tool: Loose): InferenceAgentTool {
+  const serializedParameters = JSON.stringify(tool.parameters);
   const proto = new InferenceAgentTool({
     name: tool.name,
     description: tool.description,
-    parameters: Struct.fromJsonString(JSON.stringify(tool.parameters)),
+    ...(serializedParameters === undefined ? {} : { parameters: Struct.fromJsonString(serializedParameters) }),
   });
   if (tool.customToolFormat) proto.customToolFormat = new InferenceCustomToolFormat(tool.customToolFormat);
   return proto;

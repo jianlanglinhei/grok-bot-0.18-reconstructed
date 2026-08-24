@@ -73,6 +73,8 @@ export interface ProductionBoxProviderOptions<
    * accessor instead of attempting /usr/local/bin/start-window.
    */
   readonly sharedDesktop?: boolean;
+  /** Exposes the primary noVNC viewer while retaining single-window routing. */
+  readonly standaloneVnc?: boolean;
 }
 
 export type ProductionBoxInner = HostBoxInner & {
@@ -83,15 +85,18 @@ function createStandaloneProductionBoxInner<
   Accessor extends ShellAccessor & FileTransferAccessor
 >(
   loopback: ReturnType<typeof createSandBox<Accessor>>,
-  withNoMonitorComputerUse: (accessor: Accessor) => Accessor
+  withNoMonitorComputerUse: (accessor: Accessor) => Accessor,
+  exposePrimaryVnc: boolean
 ): ProductionBoxInner {
   return {
     ensureReady: async (ctx, agentId) => {
       const primary = await loopback.ensureReady(ctx, agentId);
       return {
         ...primary,
-        remoteAccessor: withNoMonitorComputerUse(primary.remoteAccessor),
-        vncUrl: "",
+        remoteAccessor: exposePrimaryVnc
+          ? primary.remoteAccessor
+          : withNoMonitorComputerUse(primary.remoteAccessor),
+        vncUrl: exposePrimaryVnc ? primary.vncUrl : "",
       };
     },
     runState: () => loopback.runState(),
@@ -210,7 +215,8 @@ export function createProductionBoxInner<
   if (options.sharedDesktop === false) {
     return createStandaloneProductionBoxInner(
       loopback,
-      accessor => generated.withNoMonitorComputerUse(accessor)
+      accessor => generated.withNoMonitorComputerUse(accessor),
+      options.standaloneVnc === true
     );
   }
 

@@ -189,6 +189,9 @@ export function createPromptCollectorGlue<Context = unknown>(host: PromptCollect
     if (host.isBrowserUseSubagent === true) return getBrowserUseRemoteBoxSection();
     return [
       "## Your box",
+      ...(process.env.ONEBOT_BOX_RUNTIME === "aone-sandbox"
+        ? ["This computer is the active Aone Sandbox selected by the user. Its shell, files, browser, and visible desktop are available to you; identify it as Aone Sandbox when asked and operate its desktop through the supplied computer-use delegation tools."]
+        : []),
       "Alongside the user's computer you have the box, with structured file reads (Read), a shell (Shell), and your own desktop with a browser. The box is ONE persistent Linux machine shared by all of this user's agents — same filesystem and machine state, so a file, installed tool, or browser login set up by any agent is there for every agent — while the desktop is per-agent: each agent gets its own screen and browser window on that shared machine, and none sees or drives another's. Keep the two apart when explaining how this works: agents share the computer; they do not share desktops (never claim each agent has its own machine). It is a full computer: install tools, run code, and generate files (spreadsheets, CSVs, documents, images, archives) with Shell. Nothing on it touches the user's filesystem, sessions, or accounts, and anything set up there persists across turns, including files, installed tools, and especially browser logins. The user can open your desktop to watch or help.",
       "- Use ExternalRead and ExternalShell for the user's own computer (their files and local environment).",
       "- Use Read for line-numbered, paged text on the box, and for box images you need to see inline. Use Shell for commands, scratch work, risky operations, generating files, or anything that shouldn't run on the user's machine. Shell starts in /workspace, your scratch space on the box.",
@@ -260,6 +263,13 @@ export function createPromptCollectorGlue<Context = unknown>(host: PromptCollect
       "- End with a concise, self-contained report: what you did, what you saw, whether you met the goal, and if not, exactly what blocked you. That text is all the parent gets back.",
     ].join("\n");
     if (host.isSubagentRunner === true) return null;
+    if (process.env.ONEBOT_BOX_RUNTIME === "aone-sandbox") return [
+      "## The Aone Sandbox desktop",
+      "You are running in the currently selected Aone Sandbox and can operate its visible desktop directly with the Computer tool. The same desktop is shown to the user in OneBot's right-side screen pane.",
+      "- Use Computer directly for browser and GUI requests in this Aone Sandbox. Do not dispatch computerUse or browserUse Tasks for these actions.",
+      "- Work in a screenshot-act-verify loop and only report success after the resulting screen confirms it. Prefer typing an exact URL into the browser address bar when the destination is known.",
+      "- If a login, captcha, 2FA, payment, or another human-only step appears, use request_box_help with one short instruction so the user can take over the same visible desktop.",
+    ].join("\n");
     const browserUseOffered = host.isBrowserUseSubagentEnabled?.() === true;
     return [
       "## The box desktop",

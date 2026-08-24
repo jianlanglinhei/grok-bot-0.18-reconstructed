@@ -4,13 +4,22 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { transform } from "esbuild";
+import { build } from "esbuild";
+import { z } from "zod";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 async function loadModule() {
   const source = await readFile(path.join(repoRoot, "source/host/extensions/inference/codex-direct-responses.ts"), "utf8");
-  const { code } = await transform(source, { format: "esm", loader: "ts", target: "es2022" });
+  const built = await build({
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    target: "es2022",
+    stdin: { contents: source, loader: "ts", resolveDir: repoRoot },
+    write: false,
+  });
+  const code = built.outputFiles[0].text;
   return import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
 }
 
@@ -84,6 +93,73 @@ test("direct Codex Responses transport executes Grok Bot tools and continues wit
   assert.equal(requests[1].input.at(-2).type, "function_call");
   assert.deepEqual(requests[1].input.at(-1), { type: "function_call_output", call_id: "call-123", output: JSON.stringify({ result: { case: "success", value: { subject: "Subject" } } }) });
   assert.deepEqual(events.at(-1), { type: "done", text: "Subject", responseId: "resp-final", usage: { inputTokens: 28, outputTokens: 6, cacheReadTokens: 6, cacheWriteTokens: 0 } });
+});
+
+test("direct Codex Responses transport emits native tool calls for the host Agent executor", async () => {
+  const { streamCodexDirectResponses } = await loadModule();
+  const events = [];
+  for await (const event of streamCodexDirectResponses({
+    fetch: async () => sse([
+      { type: "response.output_item.done", item: { type: "function_call", call_id: "call-computer", name: "Task", arguments: "{\"subagent_type\":\"computerUse\",\"prompt\":\"Open Ele.me\"}" } },
+      { type: "response.completed", response: { id: "resp-computer", output: [], usage: { input_tokens: 7, output_tokens: 2 } } }
+    ]),
+    endpoint: "https://example.invalid/responses",
+    model: "gpt-test",
+    instructions: "Use the Aone computer",
+    input: [{ role: "user", content: "open Ele.me" }],
+    tools: [{ name: "Task", description: "Delegate computer work", parameters: { type: "object" }, source: {} }],
+  })) events.push(event);
+
+  assert.deepEqual(events, [
+    {
+      type: "tool-call",
+      toolCallId: "call-computer",
+      toolName: "Task",
+      args: { subagent_type: "computerUse", prompt: "Open Ele.me" },
+    },
+    {
+      type: "done",
+      text: "",
+      responseId: "resp-computer",
+      usage: { inputTokens: 7, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    },
+  ]);
+});
+
+test("direct Codex Responses transport converts Zod computer parameters to JSON Schema", async () => {
+  const { streamCodexDirectResponses } = await loadModule();
+  let request;
+  const parameters = z.object({
+    action: z.enum(["click", "type", "screenshot"]),
+    x: z.number().int().optional(),
+    y: z.number().int().optional(),
+  }).superRefine(() => {});
+  for await (const _event of streamCodexDirectResponses({
+    fetch: async (_url, init) => {
+      request = JSON.parse(init.body);
+      return sse([
+        { type: "response.completed", response: { id: "resp-schema", output: [], usage: {} } },
+      ]);
+    },
+    endpoint: "https://example.invalid/responses",
+    model: "gpt-test",
+    instructions: "Use the computer",
+    input: [{ role: "user", content: "open a site" }],
+    tools: [{ name: "Computer", parameters, source: {} }],
+  })) {}
+
+  assert.deepEqual(request.tools[0].parameters, {
+    type: "object",
+    properties: {
+      action: { type: "string", enum: ["click", "type", "screenshot"] },
+      x: { type: "integer" },
+      y: { type: "integer" },
+    },
+    required: ["action"],
+    additionalProperties: false,
+  });
+  assert.equal(JSON.stringify(request.tools[0].parameters).includes("_def"), false);
+  assert.equal(JSON.stringify(request.tools[0].parameters).includes("~standard"), false);
 });
 
 test("direct Codex Responses transport fails closed on a truncated stream", async () => {

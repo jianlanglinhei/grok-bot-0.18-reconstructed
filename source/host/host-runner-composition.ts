@@ -45,6 +45,7 @@ import {
 import type {
   TurnAwaitToolFactoryInput,
   TurnCloudAgentToolFactoryInput,
+  TurnComputerToolFactoryInput,
   TurnMcpManagementToolFactoryInput,
   TurnReadToolFactoryInput,
   TurnWebFetchToolFactoryInput,
@@ -146,6 +147,8 @@ import type {
   TurnToolsetHost,
   TurnToolsetTurnInput,
 } from "./runner/tools/turn-toolset.js";
+import { createSandComputerUseSubagentConfig } from "./runner/tools/sand-computer-use-subagent.js";
+import { createSandBrowserUseSubagentConfig } from "./runner/tools/sand-browser-use-subagent.js";
 import type { TurnCheckpoint, TurnSettleHost } from "./runner/turn-settle.js";
 import type { TextExecutor } from "./runner/sand-memory.js";
 import type { RunnerPromptGlueOwner } from "./runner/runner-prompt-glue.js";
@@ -1457,7 +1460,8 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
       isDynamicToolsEnabled: () =>
         method(experiments, "isDynamicToolsEnabled")?.() ?? false,
       isBrowserUseSubagentEnabled: () =>
-        method(experiments, "isBrowserUseSubagentEnabled")?.() ?? false,
+        process.env.ONEBOT_BOX_RUNTIME !== "aone-sandbox"
+        && (method(experiments, "isBrowserUseSubagentEnabled")?.() ?? false),
       isSpotlightEnabled: () =>
         method(experiments, "isSpotlightEnabled")?.() ?? false,
       isMcpMultiAccountEnabled: () =>
@@ -2102,6 +2106,48 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
           },
         };
       },
+      ...(process.env.ONEBOT_BOX_RUNTIME !== "aone-sandbox"
+        ? {}
+        : {
+            createComputerToolInputs: (
+              turn: TurnToolsetTurnInput,
+              _props: ProductionTurnToolInputs,
+            ): TurnComputerToolFactoryInput => {
+              if (turn.remoteBoxResourceAccessor === undefined) {
+                throw new TypeError("remote box resource accessor is not bound");
+              }
+              return { dependencies: createHostComputerToolDependencies({
+                resourceAccessor: turn.remoteBoxResourceAccessor,
+                ...(persistImageForTurn === undefined
+                  ? {}
+                  : { persistImage: persistImageForTurn }),
+                isUnicodeTypingEnabled: () =>
+                  method(experiments, "isUnicodeTypingEnabled")?.() ?? false,
+                onComputerAction: action => {
+                  deps.emitGatewayEvent({
+                    channel: "computer-action",
+                    payload: { agentId: session.id, ...action },
+                  });
+                },
+              }) };
+            },
+            createScreenshotToolInputs: (
+              turn: TurnToolsetTurnInput,
+              _props: ProductionTurnToolInputs,
+            ): TurnComputerToolFactoryInput => {
+              if (turn.remoteBoxResourceAccessor === undefined) {
+                throw new TypeError("remote box resource accessor is not bound");
+              }
+              return { dependencies: createHostComputerToolDependencies({
+                resourceAccessor: turn.remoteBoxResourceAccessor,
+                ...(persistImageForTurn === undefined
+                  ? {}
+                  : { persistImage: persistImageForTurn }),
+                isUnicodeTypingEnabled: () =>
+                  method(experiments, "isUnicodeTypingEnabled")?.() ?? false,
+              }) };
+            },
+          }),
       ...(turnInputs?.webSearch === undefined
         && method(extensions.api("inference"), "createWebSearch") === undefined
         ? {}
@@ -2300,9 +2346,17 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
         cloudAgent: "off",
         subagentLaunch: "off",
       };
+      const browserUseOffered = process.env.ONEBOT_BOX_RUNTIME !== "aone-sandbox"
+        && (method(experiments, "isBrowserUseSubagentEnabled")?.() ?? false);
+      const aoneDirectComputer = process.env.ONEBOT_BOX_RUNTIME === "aone-sandbox";
       const baseTurn: TurnToolsetTurnInput = {
         autoReviewModes,
-        subagentConfigs: [],
+        ...(aoneDirectComputer ? {} : {
+          subagentConfigs: [
+            createSandComputerUseSubagentConfig({ browserUseOffered }),
+            ...(browserUseOffered ? [createSandBrowserUseSubagentConfig()] : []),
+          ],
+        }),
       };
       const staticModelId = process.env.SAND_AGENT_MODEL ?? DEFAULT_SAND_MODEL;
       const lazyToolHost = () => createProductionTurnToolsetHost({
@@ -2311,7 +2365,7 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
         isSubagentRunner: false,
         isSharedRoomRunner: isSharedRoomTurn,
         isBoxScopedSubagent: false,
-        isComputerUseSubagent: false,
+        isComputerUseSubagent: aoneDirectComputer,
         isBrowserUseSubagent: false,
         isSystemPromptOverridden: typeof overrides.systemPrompt === "string",
         remoteBoxHasDesktop: true,
@@ -2442,7 +2496,7 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
                 agentId: string,
                 args: SubagentAdapterArgs,
               ): SubagentSession => {
-                const child = deps.buildRunner({
+                const childOptions: Record<string, unknown> = {
                   ...runnerOptions,
                   conversationId: agentId,
                   transcriptId: agentId,
@@ -2454,7 +2508,17 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
                     turnTimings: [],
                   },
                   productionTurnRunShell: undefined,
-                });
+                };
+                if (deps.createRunStep != null) {
+                  childOptions.runStep = deps.createRunStep({
+                    session,
+                    hooks,
+                    overrides,
+                    runnerOptions: childOptions,
+                    createTurnToolInputs,
+                  });
+                }
+                const child = deps.buildRunner(childOptions);
                 bindSessionOwnedRunner(child);
                 ownedRunners.add(child);
                 return {

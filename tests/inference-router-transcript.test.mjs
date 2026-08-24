@@ -73,3 +73,14 @@ test("routed transcript rejects malformed rich text carriers", async () => {
     await loaded.dispose();
   }
 });
+
+test("Aone Sandbox turns go through the remote host Agent instead of the coordinator shortcut", async () => {
+  const loaded = await loadModule();
+  try {
+    assert.equal(loaded.module.shouldRouteInferenceInCoordinator("codex", "aone-sandbox"), false);
+    assert.equal(loaded.module.shouldRouteInferenceInCoordinator("codex", "local-docker"), true);
+    assert.equal(loaded.module.shouldRouteInferenceInCoordinator("cursor", "aone-sandbox"), false);
+  } finally {
+    await loaded.dispose();
+  }
+});

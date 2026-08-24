@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 
 import { runRoutedProviderText } from "../host/extensions/inference/provider-session.js";
 import type { SandInferenceProvider } from "../shared/inference-router.js";
+import type { SandBoxRuntime } from "../shared/box-runtime.js";
 import { SandSettingsStore } from "../shared/node/settings/sand-settings-store.js";
 import { createRoutedMcpBridge } from "./routed-mcp-bridge.js";
 
@@ -20,6 +21,13 @@ type StoredEntry = {
 type Store = { readonly schemaVersion: 2; readonly agents: Readonly<Record<string, readonly StoredEntry[]>> };
 
 const EMPTY_STORE: Store = { schemaVersion: 2, agents: {} };
+
+export function shouldRouteInferenceInCoordinator(
+  provider: SandInferenceProvider,
+  boxRuntime: SandBoxRuntime,
+): boolean {
+  return provider !== "cursor" && boxRuntime !== "aone-sandbox";
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value != null && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -209,7 +217,11 @@ export function createCoordinatorInferenceRouter(options: {
         const limit = typeof record.limit === "number" && Number.isInteger(record.limit) && record.limit > 0 ? record.limit : 500;
         return { handled: true, value: { ...result, entries: entries.slice(-limit) } };
       }
-      if (method !== "sendPrompt" || provider === "cursor") return { handled: false };
+      if (
+        method !== "sendPrompt"
+        || provider === "cursor"
+        || !shouldRouteInferenceInCoordinator(provider, settings.getBoxRuntime())
+      ) return { handled: false };
       const record = asRecord(args) ?? {};
       const agentId = typeof record.agentId === "string" ? record.agentId : "";
       const previous = queues.get(agentId) ?? Promise.resolve();

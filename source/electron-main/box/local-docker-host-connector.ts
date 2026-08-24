@@ -9,6 +9,8 @@ import type { SandSettingsStore } from "../../shared/node/settings/sand-settings
 import type { RecreateResult } from "./box-recreate-commands.js";
 import type { SandRemoteHostConnector } from "./box-host-connector.js";
 import type { GatewayConnection } from "./gateway-descriptor-cache.js";
+import { createAoneSandboxHostConnector } from "./aone-sandbox-host-connector.js";
+import { resolveDockerExecutable } from "./docker-executable.js";
 
 export const LOCAL_DOCKER_BOX_IMAGE = "public.ecr.aws/k0i0n2g5/cursorenvironments/universal:sand-box-latest";
 export const LOCAL_DOCKER_BOX_CONTAINER = "grok-bot-local-vm";
@@ -29,11 +31,35 @@ export interface LocalDockerStatus {
 
 interface CommandResult { readonly ok: boolean; readonly output: string }
 interface InferenceCredential { readonly accessToken: string; readonly backendUrl: string; readonly expiresAtMs: number }
-interface LocalHostBundle { readonly path: string; readonly sha256: string; readonly boxExecDaemonPath: string; readonly boxExecDaemonSha256: string }
+export interface LocalHostBundle {
+  readonly path: string;
+  readonly sha256: string;
+  readonly supportFiles: readonly { readonly relativePath: string; readonly path: string }[];
+  readonly boxExecDaemonPath: string;
+  readonly boxExecDaemonSha256: string;
+}
 
-function runDocker(args: readonly string[]): Promise<CommandResult> {
+let dockerExecutablePromise: Promise<string> | undefined;
+
+async function getDockerExecutable(): Promise<string> {
+  if (dockerExecutablePromise == null) dockerExecutablePromise = resolveDockerExecutable();
+  try {
+    return await dockerExecutablePromise;
+  } catch (error) {
+    dockerExecutablePromise = undefined;
+    throw error;
+  }
+}
+
+async function runDocker(args: readonly string[]): Promise<CommandResult> {
+  let executable: string;
+  try {
+    executable = await getDockerExecutable();
+  } catch (error) {
+    return { ok: false, output: error instanceof Error ? error.message : String(error) };
+  }
   return new Promise((resolve) => {
-    const child = spawn("docker", [...args], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(executable, [...args], { stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     const append = (chunk: Buffer): void => { output += chunk.toString(); if (output.length > 200_000) output = output.slice(-200_000); };
     child.stdout?.on("data", append);
@@ -117,7 +143,7 @@ async function isDirectory(path: string): Promise<boolean> {
   try { return (await stat(path)).isDirectory(); } catch { return false; }
 }
 
-async function stageCurrentHostBundle(settingsPath: string): Promise<LocalHostBundle> {
+export async function stageCurrentHostBundle(settingsPath: string): Promise<LocalHostBundle> {
   const moduleDirectory = dirname(fileURLToPath(import.meta.url));
   const readRuntime = async (relative: string): Promise<Buffer> => {
     const candidates = [resolve(moduleDirectory, `../${relative}`), resolve(moduleDirectory, `../../${relative}`)];
@@ -126,9 +152,23 @@ async function stageCurrentHostBundle(settingsPath: string): Promise<LocalHostBu
     }
     throw new Error(`The reconstructed runtime is unavailable at ${candidates.join(" or ")}; refusing to start a stock local VM.`);
   };
-  const hostBytes = await readRuntime("host/host-main.cjs");
+  const hostRuntimeFiles = [
+    "host/host-main.cjs",
+    "host/agent-isolation/agent-store-worker.cjs",
+    "host/agent-isolation/transcript-mirror-worker.cjs",
+    "host/extensions/box-store-sync/box-store-vacuum-worker.cjs",
+    "host/extensions/content-search/search-index-worker.cjs",
+  ] as const;
+  const hostRuntimeBytes = await Promise.all(hostRuntimeFiles.map(async (relativePath) => ({
+    relativePath,
+    bytes: await readRuntime(relativePath),
+  })));
+  const hostBytes = hostRuntimeBytes.find(({ relativePath }) => relativePath === "host/host-main.cjs")?.bytes;
+  if (hostBytes == null) throw new Error("The reconstructed host runtime entry is unavailable.");
   const boxExecDaemonBytes = await readRuntime("box-exec-daemon/main.cjs");
-  const sha256 = createHash("sha256").update(hostBytes).digest("hex");
+  const hostHasher = createHash("sha256");
+  for (const file of hostRuntimeBytes) hostHasher.update(file.relativePath).update("\0").update(file.bytes).update("\0");
+  const sha256 = hostHasher.digest("hex");
   const boxExecDaemonSha256 = createHash("sha256").update(boxExecDaemonBytes).digest("hex");
   const directory = join(dirname(settingsPath), "local-docker-runtime", `${sha256}-${boxExecDaemonSha256}`);
   const persistRuntime = async (name: string, bytes: Buffer): Promise<string> => {
@@ -147,8 +187,12 @@ async function stageCurrentHostBundle(settingsPath: string): Promise<LocalHostBu
   };
   await mkdir(directory, { recursive: true });
   return {
-    path: await persistRuntime("host-main.cjs", hostBytes),
+    path: await persistRuntime("host/host-main.cjs", hostBytes),
     sha256,
+    supportFiles: await Promise.all(hostRuntimeBytes.slice(1).map(async ({ relativePath, bytes }) => ({
+      relativePath: relativePath.slice("host/".length),
+      path: await persistRuntime(relativePath, bytes),
+    }))),
     boxExecDaemonPath: await persistRuntime("box-exec-daemon/main.cjs", boxExecDaemonBytes),
     boxExecDaemonSha256,
   };
@@ -194,7 +238,7 @@ async function ensureLocalDockerBox(settingsPath: string, inferenceCredential?: 
       "--publish", "127.0.0.1:1337:1337", "--publish", "127.0.0.1:1339:1339", "--publish", "127.0.0.1:1340:1340",
       "--publish", "127.0.0.1:6080:6080", "--publish", "127.0.0.1:6081:6081", "--publish", "127.0.0.1:8790:8790",
       "--volume", "grok-bot-local-vm-workspace:/workspace", "--volume", "grok-bot-local-vm-data:/home/box/sand-data",
-      "--mount", `type=bind,src=${hostBundle.path},dst=/home/box/sand-host/host-main.cjs,readonly`,
+      "--mount", `type=bind,src=${dirname(hostBundle.path)},dst=/home/box/sand-host,readonly`,
       "--mount", `type=bind,src=${dirname(hostBundle.boxExecDaemonPath)},dst=/home/box/box-exec-daemon,readonly`,
       ...(inferenceFile == null ? [] : ["--mount", `type=bind,src=${dirname(inferenceFile)},dst=/run/grok-bot,readonly`]),
       ...authMounts,
@@ -241,11 +285,18 @@ export function createSettingsRoutedHostConnector(
     })().finally(() => { ensureInFlight = undefined; });
     return ensureInFlight;
   };
+  const aone = createAoneSandboxHostConnector({ remote, settings, stageCurrentHostBundle });
   return {
-    connect: async () => settings.getBoxRuntime() === "local-docker" ? await localConnect() : await remote.connect(),
+    connect: async () => {
+      const runtime = settings.getBoxRuntime();
+      if (runtime === "local-docker") return await localConnect();
+      if (runtime === "aone-sandbox") return await aone.connect();
+      return await remote.connect();
+    },
     ...(remote.issueLocalExecDaemonCredential == null ? {} : { issueLocalExecDaemonCredential: remote.issueLocalExecDaemonCredential.bind(remote) }),
     ...(remote.issueInferenceCredential == null ? {} : { issueInferenceCredential: remote.issueInferenceCredential.bind(remote) }),
     recreate: async (args): Promise<RecreateResult> => {
+      if (settings.getBoxRuntime() === "aone-sandbox") return await aone.recreate?.(args) ?? { status: "rejected", reason: "Aone Sandbox recreation is unavailable." };
       if (settings.getBoxRuntime() !== "local-docker") {
         if (remote.recreate == null) throw new Error("Remote computer recreation is unavailable.");
         return await remote.recreate(args);
@@ -256,6 +307,7 @@ export function createSettingsRoutedHostConnector(
       return { status: "started-untrackable" };
     },
     forceRecreate: async (): Promise<RecreateResult> => {
+      if (settings.getBoxRuntime() === "aone-sandbox") return await aone.forceRecreate?.() ?? { status: "rejected", reason: "Aone Sandbox reset is unavailable." };
       if (settings.getBoxRuntime() !== "local-docker") {
         if (remote.forceRecreate == null) return { status: "rejected", reason: "Remote computer reset is unavailable." };
         return await remote.forceRecreate();

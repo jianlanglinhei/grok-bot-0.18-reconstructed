@@ -16,7 +16,7 @@ It also adds a few practical experiments:
 - an inference router for Cursor, Claude Code, Codex, and OpenRouter;
 - Grok Bot plugin/MCP tools across the routed providers;
 - local usage tracking for routed inference;
-- an optional local Docker sandbox in place of the remote box; and
+- optional local Docker and Aone Sandbox runtimes in place of the remote box; and
 - a reconstructed settings surface integrated into the polished shipped UI.
 
 This is a hacking and research project, not Anysphere's original monorepo and
@@ -115,6 +115,28 @@ The container:
 Docker Desktop, or another compatible local Docker daemon, must be running.
 Remote mode remains the default.
 
+### Aone Sandbox
+
+The Router page also provides a mutually exclusive **Use Aone Sandbox**
+toggle. If `a1 ground` is already logged in, onebot reuses that login
+automatically; the masked API-key field is an optional override. onebot creates
+or reconnects to a temporary six-hour sandbox, uploads the reconstructed box
+host, installs its Linux runtime dependencies, and connects the coordinator to
+that sandbox.
+
+The API key is stored through the macOS encrypted secrets bridge rather than in
+the repository or plaintext runtime configuration. When Codex is selected,
+onebot copies the current local Codex login into that temporary sandbox so the
+remote host can use the same account. Switching runtimes stops the owned local
+Docker container when applicable; remote mode remains available by turning
+both sandbox toggles off.
+
+onebot installs an X11/Openbox/Chromium desktop and a token-protected noVNC
+bridge in the temporary Aone image. The right-side visual computer pane is
+therefore available in Aone mode alongside remote shell and file operations.
+The initial sandbox creation can take longer while these desktop packages are
+installed; reconnecting to the same live sandbox reuses them.
+
 ## Requirements
 
 - macOS on Apple Silicon
@@ -122,6 +144,8 @@ Remote mode remains the default.
 - Xcode Command Line Tools
 - Git LFS
 - Docker Desktop (optional, only for the local sandbox)
+- an authenticated `a1 ground` session or Aone Sandbox API key (optional, only
+  for the Aone sandbox)
 - local Claude Code or Codex authentication for those router choices
 
 ## Quick start
@@ -135,7 +159,7 @@ npm ci
 npm run bootstrap
 npm run check
 npm run package
-open "dist/Grok Bot 0.18 Reconstructed.app"
+open "dist/onebot.app"
 ```
 
 `npm run bootstrap` first uses the Git LFS preservation copy of the pinned
@@ -149,7 +173,7 @@ renderer/settings transform, creates the app bundle, assigns the reconstructed
 bundle identity, ad-hoc signs it, and verifies the result. Output is written to:
 
 ```text
-dist/Grok Bot 0.18 Reconstructed.app
+dist/onebot.app
 ```
 
 Reconstructed packages disable the upstream updater at the packaging boundary
@@ -167,7 +191,8 @@ polished shipped renderer
           │
           ├── settings, secrets, auth and plugin lifecycle
           ├── remote box connector
-          └── owned local Docker connector
+          ├── owned local Docker connector
+          └── temporary Aone Sandbox connector
                        │
                        ▼
               coordinator + host
@@ -215,10 +240,10 @@ Generated directories including `.cache`, `.build`, `dist`, `src/app/dist`,
 ## Project status
 
 The app launches and the core reconstructed flows are usable, including routed
-inference, connected plugins, and the local Docker sandbox. This is still an
-experimental reconstruction: it targets one pinned macOS/arm64 release, depends
-on external provider sessions, and does not promise compatibility with future
-Grok Bot versions.
+inference, connected plugins, the local Docker sandbox, and Aone-backed shell
+and file operations. This is still an experimental reconstruction: it targets
+one pinned macOS/arm64 release, depends on external provider sessions, and does
+not promise compatibility with future Grok Bot versions.
 
 For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). For the clean-history
 export procedure, see [docs/PUBLISHING.md](docs/PUBLISHING.md). Technical

@@ -24,6 +24,9 @@ type RoutedToolExecutor = (tool: Loose, args: unknown, toolCallId: string) => Pr
 const GROK_ROUTER_SYSTEM_PROMPT = [
   "You are Grok Bot, a warm, concise desktop assistant.",
   "You are running inside Grok Bot, not inside Codex CLI or Claude Code.",
+  ...(process.env.ONEBOT_BOX_RUNTIME === "aone-sandbox"
+    ? ["Your shell, files, browser, and visible computer are running in the active Aone Sandbox. When the user asks, identify it as Aone Sandbox and use the supplied Task/computer tools to operate it."]
+    : []),
   "The tools supplied with this request are Grok Bot's already-connected plugins and accounts. Use them whenever they are relevant instead of claiming that a plugin is unavailable or asking the user to reconnect it.",
   "Never ask for an API key for an already-connected plugin. Respond directly to the user in natural language after completing any necessary tool calls.",
 ].join("\n");
@@ -60,6 +63,87 @@ function deferred<T>() { return Promise.withResolvers<T>(); }
 
 function response(text: string, id: string, modelId: string) {
   return { id, modelId, timestamp: new Date(), headers: {}, messages: [{ role: "assistant", content: [{ type: "text", text }] }] };
+}
+
+function responseWithToolCalls(
+  text: string,
+  toolCalls: readonly { readonly toolCallId: string; readonly toolName: string; readonly args: unknown }[],
+  id: string,
+  modelId: string,
+) {
+  return {
+    id,
+    modelId,
+    timestamp: new Date(),
+    headers: {},
+    messages: [{
+      role: "assistant",
+      content: [
+        ...(text.length === 0 ? [] : [{ type: "text", text }]),
+        ...toolCalls.map(call => ({
+          type: "tool-call",
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+          args: call.args,
+        })),
+      ],
+    }],
+  };
+}
+
+function codexInput(messages: readonly ProviderMessage[]): Loose[] {
+  return messages.flatMap(message => {
+    if (typeof message.content === "string") {
+      return [{
+        role: message.role === "assistant" ? "assistant" : "user",
+        content: message.content,
+      }];
+    }
+    const input: Loose[] = [];
+    const text = message.content.flatMap(part => {
+      const record = typeof part === "object" && part != null
+        ? part as Loose
+        : null;
+      return record?.type === "text" && typeof record.text === "string"
+        ? [record.text]
+        : [];
+    }).join("\n");
+    if (text.length > 0) {
+      input.push({
+        role: message.role === "assistant" ? "assistant" : "user",
+        content: text,
+      });
+    }
+    for (const part of message.content) {
+      const record = typeof part === "object" && part != null
+        ? part as Loose
+        : null;
+      if (
+        record?.type === "tool-call"
+        && typeof record.toolCallId === "string"
+        && typeof record.toolName === "string"
+      ) {
+        input.push({
+          type: "function_call",
+          call_id: record.toolCallId,
+          name: record.toolName,
+          arguments: JSON.stringify(record.args ?? {}),
+        });
+      } else if (
+        record?.type === "tool-result"
+        && typeof record.toolCallId === "string"
+      ) {
+        input.push({
+          type: "function_call_output",
+          call_id: record.toolCallId,
+          output: typeof record.result === "string"
+            ? record.result
+            : JSON.stringify(record.result ?? null),
+        });
+      }
+    }
+    return input;
+  });
 }
 
 type CodexCredentials = { accessToken: string; refreshToken: string; idToken: string; accountId: string; path: string; document: Loose };
@@ -121,6 +205,8 @@ function codexAuthenticatedFetch(initial: CodexCredentials): typeof fetch {
       const headers = new Headers(init?.headers);
       headers.set("authorization", `Bearer ${credentials.accessToken}`);
       headers.set("ChatGPT-Account-Id", credentials.accountId);
+      const relayToken = process.env.SAND_CODEX_RELAY_TOKEN?.trim();
+      if (relayToken) headers.set("x-onebot-relay-token", relayToken);
       return fetch(input, { ...init, headers });
     };
     let result = await perform();
@@ -168,32 +254,47 @@ function codexExecutor(messages: readonly ProviderMessage[], invocationId: strin
   const credentials = codexCredentials();
   const usage = deferred<{ promptTokens: number; completionTokens: number; totalTokens: number }>();
   const extendedUsage = deferred<{ inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; maxTokens: number }>();
-  const resultResponse = deferred<ReturnType<typeof response>>();
+  const resultResponse = deferred<
+    ReturnType<typeof response> | ReturnType<typeof responseWithToolCalls>
+  >();
   const metadata = deferred<Record<string, unknown>>();
   const model = configuredCodexModel();
   const tools = codexTools(definitions);
   const fullStream = (async function* () {
     let text = "";
+    const toolCalls: Array<{ toolCallId: string; toolName: string; args: unknown }> = [];
     try {
       for await (const event of streamCodexDirectResponses({
         fetch: codexAuthenticatedFetch(credentials),
-        endpoint: "https://chatgpt.com/backend-api/codex/responses",
+        endpoint: process.env.SAND_CODEX_RESPONSES_ENDPOINT?.trim() || "https://chatgpt.com/backend-api/codex/responses",
         model,
         ...(configuredCodexReasoningEffort() == null ? {} : { reasoningEffort: configuredCodexReasoningEffort()! }),
         instructions: GROK_ROUTER_SYSTEM_PROMPT,
-        input: messages.map(message => ({ role: message.role === "assistant" ? "assistant" : "user", content: typeof message.content === "string" ? message.content : JSON.stringify(message.content) })),
+        input: codexInput(messages),
         ...(tools == null ? {} : { tools }),
         ...(executeTool == null ? {} : { executeTool: async (selected, args, toolCallId) => await executeTool(selected.source, args, toolCallId) }),
         maxSteps: tools == null ? 1 : 8,
       })) {
         if (event.type === "text-delta") { text += event.delta; yield { type: "text-delta" as const, textDelta: event.delta }; continue; }
+        if (event.type === "tool-call") {
+          const call = {
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
+            args: event.args,
+          };
+          toolCalls.push(call);
+          yield { type: "tool-call" as const, ...call };
+          continue;
+        }
         const basic = { promptTokens: event.usage.inputTokens, completionTokens: event.usage.outputTokens, totalTokens: event.usage.inputTokens + event.usage.outputTokens };
         const extended = { ...event.usage, maxTokens: 0 };
         onUsage?.(event.usage);
         usage.resolve(basic);
         extendedUsage.resolve(extended);
         metadata.resolve({ openai: { responseId: event.responseId, direct: true } });
-        resultResponse.resolve(response(text, invocationId, model));
+        resultResponse.resolve(toolCalls.length === 0
+          ? response(text, invocationId, model)
+          : responseWithToolCalls(text, toolCalls, invocationId, model));
       }
     } catch (error) { usage.reject(error); extendedUsage.reject(error); metadata.reject(error); resultResponse.reject(error); throw error; }
   })();

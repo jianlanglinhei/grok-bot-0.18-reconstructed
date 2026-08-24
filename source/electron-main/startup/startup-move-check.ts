@@ -62,6 +62,10 @@ export async function runStartupMoveCheck(
   }
   if (daemonDisposition === "stop-bootstrap") return "stop-bootstrap";
 
+  // A reconstructed build cannot install official updates, so moving it into
+  // Applications only delays startup behind a prompt that provides no benefit.
+  if (env.SAND_DISABLE_UPDATES === "1") return "continue-bootstrap";
+
   const moveDisposition = await moveToApplicationsFolderIfNeeded({
     platform: deps.platform ?? process.platform,
     isLabBuild: args.isLabBuild,

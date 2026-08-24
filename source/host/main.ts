@@ -146,6 +146,7 @@ export function createProductionHostMainDependencies(
       extensionHost: {
         ...ports.extensionHost,
         standaloneBoxExecDaemon: !useExistingBoxExecDaemon,
+        standaloneVisualDesktop: process.env.SAND_SINGLE_DESKTOP_VNC === "1",
       },
     }),
     resolveGatewayServerConfig,

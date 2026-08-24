@@ -133,6 +133,7 @@ export interface ProductionSandHostPorts {
 export interface ProductionExtensionHostAdapters {
   readonly boxGenerated: ErasedProductionBoxGeneratedPorts;
   readonly standaloneBoxExecDaemon?: boolean;
+  readonly standaloneVisualDesktop?: boolean;
   convertCloudAgentConversationToTrace(conversation: unknown): readonly unknown[];
 }
 
