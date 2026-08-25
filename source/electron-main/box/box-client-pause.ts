@@ -11,6 +11,8 @@ export class SandClientPausedError extends Error {
 
 export interface RemoteHostConnector<TConnection, TRecreateArgs = unknown, TRecreateResult = unknown, TCredential = unknown> {
   connect(): Promise<TConnection>;
+  listRoutedComputerTools?(): unknown | Promise<unknown>;
+  executeRoutedComputerTool?(request: unknown): Promise<unknown>;
   recreate?(args: TRecreateArgs): Promise<TRecreateResult>;
   forceRecreate?(): Promise<TRecreateResult>;
   issueLocalExecDaemonCredential?(): Promise<TCredential | undefined>;
@@ -23,6 +25,8 @@ export function wrapRemoteHostConnectorWithClientPause<TConnection, TRecreateArg
   const refuseWhilePaused = (): void => { if (isPaused()) throw new SandClientPausedError(); };
   return {
     connect: async () => { refuseWhilePaused(); return await base.connect(); },
+    ...(base.listRoutedComputerTools == null ? {} : { listRoutedComputerTools: async () => isPaused() ? [] : await base.listRoutedComputerTools!.call(base) }),
+    ...(base.executeRoutedComputerTool == null ? {} : { executeRoutedComputerTool: async (request: unknown) => { refuseWhilePaused(); return await base.executeRoutedComputerTool!.call(base, request); } }),
     ...(base.recreate == null ? {} : { recreate: async (args: TRecreateArgs) => { refuseWhilePaused(); return await base.recreate!.call(base, args); } }),
     ...(base.forceRecreate == null ? {} : { forceRecreate: async () => { refuseWhilePaused(); return await base.forceRecreate!.call(base); } }),
     ...(base.issueLocalExecDaemonCredential == null ? {} : {

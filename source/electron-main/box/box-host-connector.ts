@@ -37,6 +37,8 @@ export interface BrokerDeps {
 
 export interface SandRemoteHostConnector {
   connect(): Promise<GatewayConnection>;
+  listRoutedComputerTools?(): Promise<readonly unknown[]> | readonly unknown[];
+  executeRoutedComputerTool?(request: unknown): Promise<unknown>;
   recreate?(args: { readonly preserveData: boolean; readonly force?: boolean }): Promise<RecreateResult>;
   forceRecreate?(): Promise<RecreateResult>;
   issueLocalExecDaemonCredential?(): Promise<{ readonly credential: string; readonly backendUrl: string; readonly expiresAtMs?: number } | undefined>;

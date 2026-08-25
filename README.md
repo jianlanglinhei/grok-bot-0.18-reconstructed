@@ -137,6 +137,19 @@ therefore available in Aone mode alongside remote shell and file operations.
 The initial sandbox creation can take longer while these desktop packages are
 installed; reconnecting to the same live sandbox reuses them.
 
+### Local Codex CLI
+
+When Codex is selected, Router also offers **Use local Codex CLI**. This runs
+inference through `codex exec` on the Mac while leaving the selected Computer
+runtime unchanged. With Aone Sandbox selected, the local CLI reasons on the
+Mac and reaches the sandbox's shell, files, plugins, browser and visual desktop
+through onebot's temporary MCP bridge.
+
+The CLI run is ephemeral and uses Codex's read-only sandbox for local commands.
+It reuses the existing local Codex login and model, while onebot defaults the
+reasoning effort to `medium`; set `SAND_CODEX_REASONING_EFFORT` to override it.
+Run `codex login` before enabling the route.
+
 ## Requirements
 
 - macOS on Apple Silicon

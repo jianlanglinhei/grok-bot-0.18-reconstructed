@@ -9,6 +9,16 @@ import type { SandSettingsStore } from "../../shared/node/settings/sand-settings
 import { readSecret, writeSecret } from "../secrets/secret-store.js";
 import { readA1GroundApiKey } from "./aone-sandbox-credential.js";
 import { buildAoneNoVncUrl } from "./aone-sandbox-vnc.js";
+import {
+  AONE_BROWSER_OPEN_TOOL_NAME,
+  AONE_COMPUTER_PROVIDER_IDENTIFIER,
+  AONE_COMPUTER_SCREENSHOT_TOOL_NAME,
+  buildAoneBrowserOpenCommand,
+  isTransientAoneConnectionError,
+  listAoneRoutedComputerTools,
+  resolveAoneBrowserTarget,
+  routedComputerSuccess,
+} from "./aone-sandbox-computer-tools.js";
 import type { RecreateResult } from "./box-recreate-commands.js";
 import type { SandRemoteHostConnector } from "./box-host-connector.js";
 import type { GatewayConnection } from "./gateway-descriptor-cache.js";
@@ -103,6 +113,18 @@ async function writeState(settingsPath: string, state: AoneSandboxState): Promis
   await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   await rename(temporary, target);
   logAoneSandbox(`state persisted at ${target}`);
+}
+
+async function killPersistedSandbox(state: AoneSandboxState, key: string, reason: string): Promise<void> {
+  try {
+    logAoneSandbox(`reclaiming persisted sandbox ${state.sandboxId} (${reason})`);
+    const sandbox = await Sandbox.connect({ sandboxId: state.sandboxId, connectionConfig: connectionConfig(key), connectTimeoutSeconds: 60 });
+    await sandbox.kill();
+    await sandbox.close().catch(() => undefined);
+    logAoneSandbox(`persisted sandbox ${state.sandboxId} reclaimed`);
+  } catch (error) {
+    logAoneSandbox(`persisted sandbox ${state.sandboxId} could not be reclaimed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 async function apiKey(): Promise<string> {
@@ -562,7 +584,9 @@ export function createAoneSandboxHostConnector(args: {
         await active.sandbox.close().catch(() => undefined);
         active = undefined;
       }
-      if (state != null && state.hostSha256 === bundle.sha256 && state.boxExecDaemonSha256 === bundle.boxExecDaemonSha256 && state.provider === provider) {
+      const stateMatchesRuntime = state != null && state.hostSha256 === bundle.sha256 && state.boxExecDaemonSha256 === bundle.boxExecDaemonSha256 && state.provider === provider;
+      if (state != null && !stateMatchesRuntime) await killPersistedSandbox(state, key, "runtime changed");
+      if (state != null && stateMatchesRuntime) {
         try {
           const sandbox = await Sandbox.connect({ sandboxId: state.sandboxId, connectionConfig: connectionConfig(key), connectTimeoutSeconds: 60 });
           const connection = await gatewayConnection(sandbox, token);
@@ -573,9 +597,11 @@ export function createAoneSandboxHostConnector(args: {
             active = { sandbox, state };
             return connection;
           }
+          await sandbox.kill().catch(() => undefined);
           await sandbox.close().catch(() => undefined);
-        } catch {
-          // A persisted sandbox may have expired. A new instance is created below.
+        } catch (error) {
+          if (isTransientAoneConnectionError(error)) throw error;
+          await killPersistedSandbox(state, key, "reconnect failed");
         }
       }
       const inferenceCredential = args.remote.issueInferenceCredential == null ? undefined : await Promise.race([
@@ -615,8 +641,47 @@ export function createAoneSandboxHostConnector(args: {
     await sandbox.close().catch(() => undefined);
   };
 
+  const captureDesktop = async (sandbox: Sandbox): Promise<string> => {
+    const result = await sandbox.commands.run("DISPLAY=:0 import -window root png:- | base64 -w 0", { timeoutSeconds: 20 });
+    const data = result.logs.stdout.map(message => message.text).join("").replace(/\s+/gu, "");
+    if (result.exitCode !== 0 || data.length === 0) {
+      const stderr = result.logs.stderr.map(message => message.text).join("").trim();
+      throw new Error(`Aone desktop screenshot failed${stderr.length === 0 ? "." : `: ${stderr}`}`);
+    }
+    return data;
+  };
+
+  const executeRoutedComputerTool = async (request: unknown): Promise<unknown> => {
+    if (typeof request !== "object" || request == null || Array.isArray(request)) throw new Error("Malformed Aone computer tool request.");
+    const row = request as Record<string, unknown>;
+    if (row.providerIdentifier !== AONE_COMPUTER_PROVIDER_IDENTIFIER) throw new Error("Unknown Aone computer tool provider.");
+    const name = typeof row.name === "string" ? row.name : typeof row.toolName === "string" ? row.toolName : "";
+    const toolArgs = typeof row.args === "object" && row.args != null && !Array.isArray(row.args) ? row.args as Record<string, unknown> : {};
+    await connect();
+    if (active == null) throw new Error("Aone Sandbox is not connected.");
+    if (name === AONE_COMPUTER_SCREENSHOT_TOOL_NAME) {
+      return routedComputerSuccess([{ type: "image", data: await captureDesktop(active.sandbox), mimeType: "image/png" }]);
+    }
+    if (name === AONE_BROWSER_OPEN_TOOL_NAME) {
+      if (typeof toolArgs.target !== "string") throw new Error("onebot_browser_open requires a target string.");
+      const url = resolveAoneBrowserTarget(toolArgs.target);
+      const result = await active.sandbox.commands.run(buildAoneBrowserOpenCommand(url), { timeoutSeconds: 30 });
+      if (result.exitCode !== 0) {
+        const stderr = result.logs.stderr.map(message => message.text).join("").trim();
+        throw new Error(`Aone visible browser could not open ${url}${stderr.length === 0 ? "." : `: ${stderr}`}`);
+      }
+      return routedComputerSuccess([
+        { type: "text", text: `Opened ${url} in the visible browser on the active Aone Sandbox.` },
+        { type: "image", data: await captureDesktop(active.sandbox), mimeType: "image/png" },
+      ]);
+    }
+    throw new Error(`Unknown Aone computer tool: ${name}`);
+  };
+
   return {
     connect,
+    listRoutedComputerTools: () => listAoneRoutedComputerTools(),
+    executeRoutedComputerTool,
     recreate: async (): Promise<RecreateResult> => {
       await destroy();
       await connect();

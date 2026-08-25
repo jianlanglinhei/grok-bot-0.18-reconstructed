@@ -66,6 +66,7 @@ export const MAIN_METHOD_TABLE = {
   getAvailableModels: { args: "none" },
   getInferenceRouter: { args: "none" },
   setInferenceRouter: { args: "object" },
+  setLocalCodexCliEnabled: { args: "object" },
   getBoxRuntime: { args: "none" },
   setBoxRuntime: { args: "object" },
   getAoneSandboxConfig: { args: "none" },

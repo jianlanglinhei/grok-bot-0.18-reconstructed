@@ -421,8 +421,22 @@ export function createProductionCoordinatorAdapter<
         onDnsDiagnostic: telemetry.reportBoxDnsDiagnostic,
         onProcessCrash: ports.telemetry.reportProcessCrash,
         getRpcTraceWindowTraceparent: ports.telemetry.getRpcTraceWindowTraceparent,
-        listRoutedMcpTools: () => context.requireMcp().listRoutedTools(),
-        executeRoutedMcpTool: (request) => context.requireMcp().executeRoutedTool(request),
+        listRoutedMcpTools: async () => {
+          const plugins = await context.requireMcp().listRoutedTools();
+          const computer = await connector.listRoutedComputerTools?.();
+          return [
+            ...(Array.isArray(plugins) ? plugins : []),
+            ...(Array.isArray(computer) ? computer : []),
+          ];
+        },
+        executeRoutedMcpTool: (request) => {
+          const providerIdentifier = typeof request === "object" && request != null && !Array.isArray(request)
+            ? Reflect.get(request, "providerIdentifier")
+            : undefined;
+          return providerIdentifier === "onebot-computer" && connector.executeRoutedComputerTool != null
+            ? connector.executeRoutedComputerTool(request)
+            : context.requireMcp().executeRoutedTool(request);
+        },
         native: ports.localExecNative,
       });
       const createRuntime = () =>

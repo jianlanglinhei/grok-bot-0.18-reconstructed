@@ -262,6 +262,7 @@ export function createDesktopPreloadBridge(options: {
       getAvailableModels: () => edge("getAvailableModels"),
       getInferenceRouter: () => edge("getInferenceRouter"),
       setInferenceRouter: (provider: string) => edge("setInferenceRouter", { provider }),
+      setLocalCodexCliEnabled: (enabled: boolean) => edge("setLocalCodexCliEnabled", { enabled }),
       getBoxRuntime: () => edge("getBoxRuntime"),
       setBoxRuntime: (mode: string) => edge("setBoxRuntime", { mode }),
       getAoneSandboxConfig: () => edge("getAoneSandboxConfig"),

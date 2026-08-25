@@ -25,12 +25,25 @@ const EMPTY_STORE: Store = { schemaVersion: 2, agents: {} };
 export function shouldRouteInferenceInCoordinator(
   provider: SandInferenceProvider,
   boxRuntime: SandBoxRuntime,
+  useLocalCodexCli = false,
 ): boolean {
-  return provider !== "cursor" && boxRuntime !== "aone-sandbox";
+  return provider !== "cursor" && (boxRuntime !== "aone-sandbox" || (provider === "codex" && useLocalCodexCli));
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value != null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+export async function executeRoutedMcpToolForAgent(
+  dispatchRemote: (method: string, args: unknown) => Promise<unknown>,
+  agentId: string,
+  request: Record<string, unknown>,
+): Promise<unknown> {
+  const result = await dispatchRemote("executeRoutedMcpTool", { ...request, agentId });
+  if (request.providerIdentifier === "onebot-computer") {
+    await dispatchRemote("ensureForeverBox", { id: agentId });
+  }
+  return result;
 }
 
 export function parseInferenceRouterTranscriptStore(value: unknown): Store {
@@ -152,11 +165,10 @@ export function createCoordinatorInferenceRouter(options: {
     // The shipped transcript intentionally suppresses its activity row as soon as
     // the first streamed assistant entry arrives. Direct providers can produce that
     // first delta in the same renderer reconciliation window as the roster update,
-    // making the genuine composing state imperceptible. The shipped virtualized
-    // transcript needs roughly 350 ms to materialize its trailing activity row,
-    // so keep the composing state authoritative long enough for a clearly
-    // perceptible rendered interval before normal token streaming begins.
-    await new Promise<void>(resolve => setTimeout(resolve, 1_200));
+    // making the genuine composing state imperceptible. Keep a brief composing
+    // state so the activity row can render without
+    // adding a noticeable fixed delay to every inference turn.
+    await new Promise<void>(resolve => setTimeout(resolve, 200));
     const messages = (withUser.agents[agentId] ?? []).map(entry => ({ role: entry.role, content: entry.content }));
     let content: string;
     const assistantTimestampMs = now();
@@ -167,25 +179,25 @@ export function createCoordinatorInferenceRouter(options: {
       emitTranscript(agentId, assistantStreamStarted ? "updated" : "appended", entry);
       assistantStreamStarted = true;
     };
-    const bridge = provider === "claude-code" ? await createRoutedMcpBridge({
+    const useCodexCli = provider === "codex" && settings.getUseLocalCodexCli();
+    const bridge = provider === "claude-code" || useCodexCli ? await createRoutedMcpBridge({
       listTools: () => options.dispatchRemote("listRoutedMcpTools", {}),
-      callTool: tool => options.dispatchRemote("executeRoutedMcpTool", { ...tool, agentId }),
+      callTool: tool => executeRoutedMcpToolForAgent(options.dispatchRemote, agentId, tool),
     }) : null;
     const directTools = bridge == null ? await options.dispatchRemote("listRoutedMcpTools", {}) : undefined;
     const tools = Array.isArray(directTools) ? directTools as Record<string, any>[] : undefined;
     const onTextDelta = (_delta: string, accumulated: string) => emitAssistant(accumulated, true);
     try { content = await runRoutedProviderText(provider, messages, bridge == null ? {
       ...(tools === undefined ? {} : { tools }),
-      executeTool: async (definition, toolArgs, toolCallId) => await options.dispatchRemote("executeRoutedMcpTool", {
+      executeTool: async (definition, toolArgs, toolCallId) => await executeRoutedMcpToolForAgent(options.dispatchRemote, agentId, {
         providerIdentifier: definition.providerIdentifier,
         name: definition.name,
         toolName: definition.toolName,
         args: toolArgs,
         toolCallId,
-        agentId,
       }),
       onTextDelta,
-    } : { mcpServerUrl: bridge.url, onTextDelta }); }
+    } : { mcpServerUrl: bridge.url, useCodexCli, onTextDelta }); }
     finally { endActivity(); await bridge?.close(); }
     await append(agentId, [{ provider, role: "assistant", content, id: assistantId, timestampMs: assistantTimestampMs }]);
     emitAssistant(content, false);
@@ -220,7 +232,7 @@ export function createCoordinatorInferenceRouter(options: {
       if (
         method !== "sendPrompt"
         || provider === "cursor"
-        || !shouldRouteInferenceInCoordinator(provider, settings.getBoxRuntime())
+        || !shouldRouteInferenceInCoordinator(provider, settings.getBoxRuntime(), settings.getUseLocalCodexCli())
       ) return { handled: false };
       const record = asRecord(args) ?? {};
       const agentId = typeof record.agentId === "string" ? record.agentId : "";

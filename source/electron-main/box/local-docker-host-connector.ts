@@ -293,6 +293,13 @@ export function createSettingsRoutedHostConnector(
       if (runtime === "aone-sandbox") return await aone.connect();
       return await remote.connect();
     },
+    listRoutedComputerTools: async () => settings.getBoxRuntime() === "aone-sandbox"
+      ? await aone.listRoutedComputerTools?.() ?? []
+      : [],
+    executeRoutedComputerTool: async (request) => {
+      if (settings.getBoxRuntime() !== "aone-sandbox" || aone.executeRoutedComputerTool == null) throw new Error("The selected computer runtime does not expose routed computer tools.");
+      return await aone.executeRoutedComputerTool(request);
+    },
     ...(remote.issueLocalExecDaemonCredential == null ? {} : { issueLocalExecDaemonCredential: remote.issueLocalExecDaemonCredential.bind(remote) }),
     ...(remote.issueInferenceCredential == null ? {} : { issueInferenceCredential: remote.issueInferenceCredential.bind(remote) }),
     recreate: async (args): Promise<RecreateResult> => {

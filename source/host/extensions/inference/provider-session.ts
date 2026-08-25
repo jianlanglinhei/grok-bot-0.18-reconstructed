@@ -13,6 +13,7 @@ import { getSandRootDir } from "../../host-paths.js";
 import { SandSettingsStore } from "../../../shared/node/settings/sand-settings-store.js";
 import { getBoxSecretsStorePath } from "../secrets/secrets-service.js";
 import { streamCodexDirectResponses, type CodexDirectTool } from "./codex-direct-responses.js";
+import { runCodexCliTurn } from "./codex-cli.js";
 import type { LabelMessage, PromptExecutor } from "./sand-labeling.js";
 
 type Loose = Record<string, any>;
@@ -226,14 +227,10 @@ function configuredCodexModel(): string {
   } catch { return "gpt-5.4"; }
 }
 
-function configuredCodexReasoningEffort(): "minimal" | "low" | "medium" | "high" | "xhigh" | undefined {
+function configuredCodexReasoningEffort(): "minimal" | "low" | "medium" | "high" | "xhigh" {
   const selected = process.env.SAND_CODEX_REASONING_EFFORT?.trim();
   if (selected === "minimal" || selected === "low" || selected === "medium" || selected === "high" || selected === "xhigh") return selected;
-  try {
-    const config = readFileSync(join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "config.toml"), "utf8");
-    const value = /^\s*model_reasoning_effort\s*=\s*["']([^"']+)["']/m.exec(config)?.[1]?.trim();
-    return value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh" ? value : undefined;
-  } catch { return undefined; }
+  return "medium";
 }
 
 function codexTools(definitions: readonly Loose[] | undefined): CodexDirectTool[] | undefined {
@@ -268,7 +265,7 @@ function codexExecutor(messages: readonly ProviderMessage[], invocationId: strin
         fetch: codexAuthenticatedFetch(credentials),
         endpoint: process.env.SAND_CODEX_RESPONSES_ENDPOINT?.trim() || "https://chatgpt.com/backend-api/codex/responses",
         model,
-        ...(configuredCodexReasoningEffort() == null ? {} : { reasoningEffort: configuredCodexReasoningEffort()! }),
+        reasoningEffort: configuredCodexReasoningEffort(),
         instructions: GROK_ROUTER_SYSTEM_PROMPT,
         input: codexInput(messages),
         ...(tools == null ? {} : { tools }),
@@ -371,12 +368,24 @@ export function createProviderPromptSession(provider: RoutedProvider): { getMode
 
 export async function runRoutedProviderText(provider: RoutedProvider, messages: readonly ProviderMessage[], options?: {
   readonly mcpServerUrl?: string;
+  readonly useCodexCli?: boolean;
   readonly tools?: readonly Loose[];
   readonly executeTool?: RoutedToolExecutor;
   readonly onTextDelta?: (delta: string, accumulated: string) => void;
 }): Promise<string> {
   const invocationId = crypto.randomUUID();
   const onUsage = (usage: UsageRecord) => recordRoutedUsage(provider, usage);
+  if (provider === "codex" && options?.useCodexCli === true) {
+    return await runCodexCliTurn({
+      prompt: `${providerPrompt(messages)}\n\nThis turn uses the local Codex CLI only as the inference transport. Do not use Codex's built-in local shell or local filesystem for the user's computer tasks. Use the onebot_plugins MCP tools for any remote actions they expose so those actions stay in onebot's selected Computer runtime (for example, the active Aone Sandbox). If the requested remote action is not exposed, say that it is unavailable instead of falling back to this Mac.`,
+      cwd: join(getSandRootDir(), "codex-cli-workspace"),
+      model: configuredCodexModel(),
+      reasoningEffort: configuredCodexReasoningEffort(),
+      ...(options.mcpServerUrl == null ? {} : { mcpServerUrl: options.mcpServerUrl }),
+      onUsage,
+      ...(options.onTextDelta == null ? {} : { onTextDelta: options.onTextDelta }),
+    });
+  }
   const result = provider === "codex"
     ? codexExecutor(messages, invocationId, options?.tools, options?.executeTool, onUsage)
     : provider === "claude-code"

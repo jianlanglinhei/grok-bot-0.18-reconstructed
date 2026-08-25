@@ -82,6 +82,8 @@ export interface WebAuthnPromptDependencies {
 export interface CoordinatorGatewayConnector {
   connect(): unknown | Promise<unknown>;
   issueLocalExecDaemonCredential?(): unknown | Promise<unknown>;
+  listRoutedComputerTools?(): unknown | Promise<unknown>;
+  executeRoutedComputerTool?(request: unknown): Promise<unknown>;
 }
 
 export interface CoordinatorTransportStageReport {
@@ -459,6 +461,17 @@ export function createCoordinatorControlExecutors(
       child.kill("SIGTERM");
     });
   };
+  const retireSupersededOwnedDaemons = async (): Promise<void> => {
+    for (const identity of [...ownedDaemonIdentities.values()]) {
+      const observed = readOwnedIdentity(identity);
+      if (observed == null || !sameLocalExecProcessIdentity(observed, identity)) {
+        if (ownedDaemonIdentities.get(identity.pid) === identity) ownedDaemonIdentities.delete(identity.pid);
+        continue;
+      }
+      await native.terminateProcess(identity.pid);
+      if (ownedDaemonIdentities.get(identity.pid) === identity) ownedDaemonIdentities.delete(identity.pid);
+    }
+  };
 
   return {
     resolveGatewayConnection: () => connector.connect(),
@@ -483,6 +496,7 @@ export function createCoordinatorControlExecutors(
       readonly logPath: string;
       readonly env: NodeJS.ProcessEnv;
     }) {
+      await retireSupersededOwnedDaemons();
       const spawned = await native.spawnLocalExecDaemon(args);
       const { child, entryRealpath, generationToken } = spawned;
       if (child.pid === undefined) throw new Error("local-exec daemon spawn returned no pid");
