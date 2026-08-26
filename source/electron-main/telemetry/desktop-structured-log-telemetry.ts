@@ -102,7 +102,7 @@ export class SandDesktopStructuredLogTelemetry {
 
   private constructor(options: DesktopStructuredLogTelemetryOptions, loaded?: DesktopStructuredLogSpillState, spillWritable = true, spillOnDisk = false) {
     this.spill = options.spill; this.spillWritable = spillWritable; this.spillOnDisk = spillOnDisk; this.accountSlot = options.accountSlot; this.now = options.now ?? Date.now;
-    const tags = { client: "sand", "client.type": "sand", "client.machine_id": options.machineId, client_version: options.clientVersion, app_version: options.appVersion ?? "0.18.0", arch: process.arch, platform: process.platform };
+    const tags = { client: "sand", "client.type": "sand", "client.machine_id": options.machineId, client_version: options.clientVersion, app_version: options.appVersion ?? "0.24.0", arch: process.arch, platform: process.platform };
     const disabled = options.disabled ?? process.env.SAND_DISABLE_TELEMETRY === "1";
     this.accountTransport = new BufferedTransport({ tags, createClient: options.createClient, disabled, now: this.now, ...(loaded === undefined ? {} : { initial: loaded.checkpoint }), polling: options.enablePolling ?? true });
     this.accountTransport.setFlushSettledListener(() => this.syncSpillAfterTransportFlush());

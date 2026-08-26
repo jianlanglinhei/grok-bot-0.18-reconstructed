@@ -120,7 +120,7 @@ export function DevShell({ upstreamBoot }: DevShellProps) {
   if (!open) {
     return (
       <button className={`badge badge--${boot}`} onClick={() => setOpen(true)} title="Open reconstructed developer tools (⌘⇧D)">
-        0.18 DEV · {boot}
+        0.24 DEV · {boot}
       </button>
     );
   }
@@ -129,7 +129,7 @@ export function DevShell({ upstreamBoot }: DevShellProps) {
     <aside className="panel">
       <header>
         <div>
-          <strong>0.18 reconstructed</strong>
+          <strong>0.24 reconstructed</strong>
           <span>renderer lab</span>
         </div>
         <button className="icon" onClick={() => setOpen(false)} aria-label="Close developer panel">×</button>
@@ -228,7 +228,7 @@ export function DevShell({ upstreamBoot }: DevShellProps) {
                   setPreviewTrack(track);
                   setPreviewStatus(`track ${track}`);
                 }}
-                status={{ currentTrack: previewTrack, currentVersion: "0.18.0", state: { type: "idle", lastCheck: { result: "up-to-date" } } }}
+                status={{ currentTrack: previewTrack, currentVersion: "0.24.0", state: { type: "idle", lastCheck: { result: "up-to-date" } } }}
               />;
             }}
           />}

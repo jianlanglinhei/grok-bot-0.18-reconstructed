@@ -1,9 +1,9 @@
 {
   "name": "onebot",
-  "version": "0.18.0-reconstructed.1",
+  "version": "0.24.0-reconstructed.1",
   "private": true,
   "type": "module",
-  "description": "onebot desktop agent reconstructed from the public 0.18.0 macOS application",
+  "description": "onebot desktop agent reconstructed from the public 0.24.0 macOS application",
   "engines": {
     "node": ">=26.5.0 <27"
   },
@@ -18,6 +18,7 @@
     "package": "npm run check && node scripts/package-macos.mjs",
     "package:diagnostic": "npm run check && node scripts/package-fidelity-diagnostic.mjs",
     "publication:check": "node scripts/verify-publication-tree.mjs",
+    "recover:upstream": "node scripts/recover-upstream-release.mjs",
     "postinstall": "node scripts/apply-third-party-patches.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test": "node --test tests/*.test.mjs",

@@ -7,8 +7,8 @@ export const repoRoot = path.resolve(thisDir, "../..");
 export const sourceAppDir = path.join(repoRoot, "src", "app");
 export const cacheDir = path.join(repoRoot, ".cache");
 export const cachedRuntimeApp = path.join(cacheDir, "runtime", "Grok Bot.app");
-export const cachedDmg = path.join(cacheDir, "downloads", "Grok_Bot_0.18.0.dmg");
-export const archivedDmg = path.join(repoRoot, "research-archives", "original", "0.18.0", "macos-arm64", "Grok_Bot_0.18.0.dmg");
+export const cachedDmg = path.join(cacheDir, "downloads", "Grok_Bot_0.24.0.dmg");
+export const archivedDmg = path.join(repoRoot, "research-archives", "original", "0.24.0", "macos-arm64", "Grok_Bot_0.24.0.dmg");
 export const buildDir = path.join(repoRoot, ".build");
 export const stagedAppDir = path.join(buildDir, "app");
 export const builtAsar = path.join(buildDir, "app.asar");
@@ -26,23 +26,23 @@ export const outputApp = path.join(
   outputDir,
   configuredOutputName ? path.basename(configuredOutputName) : "onebot.app"
 );
-export const fidelityOutputApp = path.join(outputDir, "onebot 0.18 Fidelity.app");
+export const fidelityOutputApp = path.join(outputDir, "onebot 0.24 Fidelity.app");
 export const fidelityOutputAppForAsarHash = asarHash => {
   if (!/^[0-9a-f]{64}$/.test(asarHash)) throw new TypeError("A full lowercase ASAR SHA-256 is required");
-  return path.join(outputDir, `onebot 0.18 Fidelity-${asarHash.slice(0, 12)}.app`);
+  return path.join(outputDir, `onebot 0.24 Fidelity-${asarHash.slice(0, 12)}.app`);
 };
 export const fidelityInstalledAppForAsarHash = asarHash => path.join("/Applications", path.basename(fidelityOutputAppForAsarHash(asarHash)));
 export const recoveredFrontendDir = path.join(repoRoot, "recovered", "frontend");
 export const recoveredRendererDir = path.join(recoveredFrontendDir, "app");
 export const frontendDir = path.join(repoRoot, "frontend");
-export const devOutputApp = path.join(outputDir, "onebot 0.18 Dev.app");
+export const devOutputApp = path.join(outputDir, "onebot 0.24 Dev.app");
 export const devProfileDir = path.join(cacheDir, "dev-profile");
 
-export const upstreamVersion = "0.18.0";
+export const upstreamVersion = "0.24.0";
 export const reconstructedBundleId = "com.jianlanglinhei.onebot";
 export const reconstructedName = "onebot";
 export const fidelityBundleId = "com.jianlanglinhei.onebot.fidelity";
-export const fidelityName = "onebot 0.18 Fidelity";
-export const dmgUrl = "https://downloads.cursor.com/grokbot/stable/darwin-arm64/0.18.0/Grok_Bot_0.18.0.dmg";
-export const dmgSha256 = "a253ccd8aab01e083f9812a0264354c5034d8ba7f0610bbb557e82ae77d203eb";
-export const upstreamAsarSha256 = "6665408168466f9cacc6087e917890c17f59d2e2e9c2404a5c4a59ad79c1de58";
+export const fidelityName = "onebot 0.24 Fidelity";
+export const dmgUrl = "https://downloads.cursor.com/grokbot/stable/darwin-arm64/0.24.0/Grok_Bot_0.24.0.dmg";
+export const dmgSha256 = "255873da42d2f19b27d7f34cdfb5b058002095ade883d8b321d6494f3cf6c615";
+export const upstreamAsarSha256 = "41f7d5008db4edcb198d9e466c9c1e776bb8a75a7651951257ff9a4f885a4540";

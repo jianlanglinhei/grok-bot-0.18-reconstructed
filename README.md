@@ -1,9 +1,9 @@
-# onebot 0.18 — reconstructed and extended
+# onebot 0.24 — reconstructed and extended
 
 ![onebot Router settings with Codex selected and local usage totals](docs/assets/router-settings.png)
 
 This repository is an unofficial, source-oriented reconstruction of the
-publicly shipped onebot 0.18.0 macOS app.
+publicly shipped Grok Bot 0.24.0 macOS app.
 
 The project began as an attempt to understand how the desktop app was put
 together. It now contains readable TypeScript implementations of its Electron,
@@ -31,13 +31,16 @@ Windows x64 installers. It deliberately does **not** commit the extracted
 upstream application, build output, local credentials, or the large forensic
 recovery workspace.
 
-The public onebot 0.18.0 application is instead treated as a pinned build
+The public Grok Bot 0.24.0 application is instead treated as a pinned build
 input. During bootstrap, the toolchain downloads it, verifies its SHA-256
 identity, and extracts the pieces required to assemble the reconstruction.
 
-The resulting app is a hybrid by design:
+The resulting 0.24 app is a hybrid by design:
 
-- application runtimes are compiled from the readable sources under `source/`;
+- reviewed overlays and standalone runtimes are compiled from the readable
+  sources under `source/`;
+- the 0.24 Electron main and Host bundles remain checksum-pinned artifact
+  fallbacks until their clean-source bindings are revalidated against 0.24;
 - the polished shipped renderer remains the UI baseline;
 - a narrow deterministic transform adds the reconstructed Router settings UI;
 - original and patched renderer chunk hashes are recorded and verified; and
@@ -65,7 +68,7 @@ or a pixel-perfect replacement for the packaged renderer.
 
 ## Preserved original installers
 
-Research copies of the exact 0.18.0 installers live under
+Historical research copies of the exact 0.18.0 installers live under
 `research-archives/original/0.18.0/` and are stored with Git LFS:
 
 | Platform | File | SHA-256 |
@@ -176,10 +179,16 @@ open "dist/onebot.app"
 ```
 
 `npm run bootstrap` first uses the Git LFS preservation copy of the pinned
-0.18.0 DMG. If that archive is absent, it falls back to the original public URL;
-`ONEBOT_018_APP` can also point to an existing application copy. Bootstrap
-verifies both the DMG and `app.asar`, caches the matching Electron runtime, and
-hydrates the ignored `src/app/dist` build input.
+0.24.0 DMG when present. If that archive is absent, it falls back to the public
+0.24.0 URL; `ONEBOT_UPSTREAM_APP` can also point to an existing application
+copy (`ONEBOT_018_APP` remains a legacy alias). Bootstrap verifies both the DMG
+and `app.asar`, caches the matching Electron runtime, and hydrates the ignored
+`src/app/dist` build input.
+
+`npm run recover:upstream` extracts the hash-verified ASAR and readable-prints
+its application JavaScript into ignored `recovered/upstream/0.24.0/`. The
+release ships no source maps, so this output cannot restore original names,
+comments, TypeScript types, or authored module layout.
 
 `npm run package` compiles the reconstructed runtimes, applies the narrow
 renderer/settings transform, creates the app bundle, assigns the reconstructed
@@ -241,6 +250,7 @@ npm test                  # focused regression tests
 npm run typecheck         # renderer TypeScript
 npm run source:typecheck  # runtime TypeScript
 npm run frontend:build    # build the readable renderer reconstruction
+npm run recover:upstream  # readable-print the pinned upstream application
 npm run package           # build, sign, and verify the macOS app
 npm run verify            # verify an existing packaged app
 npm run smoke             # bounded native smoke check
@@ -252,11 +262,13 @@ Generated directories including `.cache`, `.build`, `dist`, `src/app/dist`,
 
 ## Project status
 
-The app launches and the core reconstructed flows are usable, including routed
-inference, connected plugins, the local Docker sandbox, and Aone-backed shell
-and file operations. This is still an experimental reconstruction: it targets
-one pinned macOS/arm64 release, depends on external provider sessions, and does
-not promise compatibility with future onebot versions.
+The 0.24 package builds, typechecks, passes focused regressions, receives an
+ad-hoc signature, and passes structural package verification. A visual launch
+smoke has not yet been accepted for this release because the strict smoke gate
+rejects artifact-fallback Electron main, Host, and renderer runtimes. This is
+still an experimental reconstruction: it targets one pinned macOS/arm64
+release, depends on external provider sessions, and does not promise
+compatibility with future Grok Bot versions.
 
 For changes, read [CONTRIBUTING.md](CONTRIBUTING.md). For the clean-history
 export procedure, see [docs/PUBLISHING.md](docs/PUBLISHING.md). Technical

@@ -40,7 +40,7 @@ test("preserved 0.18.0 installers match the exact public release inventory", asy
   }
 });
 
-test("bootstrap prefers the hash-pinned local archive before the network", async () => {
+test("bootstrap prefers the current hash-pinned local archive before the network", async () => {
   const [attributes, config, bootstrap] = await Promise.all([
     readFile(path.join(repositoryRoot, ".gitattributes"), "utf8"),
     readFile(path.join(repositoryRoot, "scripts", "lib", "config.mjs"), "utf8"),
@@ -48,9 +48,28 @@ test("bootstrap prefers the hash-pinned local archive before the network", async
   ]);
   assert.match(attributes, /research-archives\/original\/\*\*\/\*\.dmg filter=lfs diff=lfs merge=lfs -text/);
   assert.match(attributes, /research-archives\/original\/\*\*\/\*\.exe filter=lfs diff=lfs merge=lfs -text/);
-  assert.match(config, /export const archivedDmg = path\.join\(repoRoot, "research-archives", "original", "0\.18\.0", "macos-arm64", "Grok_Bot_0\.18\.0\.dmg"\)/);
+  assert.match(config, /export const archivedDmg = path\.join\(repoRoot, "research-archives", "original", "0\.24\.0", "macos-arm64", "Grok_Bot_0\.24\.0\.dmg"\)/);
   assert.match(bootstrap, /const archivedDigest = await sha256\(archivedDmg\)/);
   assert.match(bootstrap, /if \(archivedDigest !== dmgSha256\)/);
   assert.match(bootstrap, /await copyFile\(archivedDmg, cachedDmg\)/);
   assert.ok(bootstrap.indexOf("await copyFile(archivedDmg, cachedDmg)") < bootstrap.indexOf("await fetch(dmgUrl"));
+});
+
+test("current upstream manifest pins the complete 0.24.0 macOS identity", async () => {
+  const manifest = JSON.parse(await readFile(path.join(repositoryRoot, "manifests", "upstream", "0.24.0.json"), "utf8"));
+  assert.deepEqual(Object.keys(manifest).sort(), ["artifacts", "product", "releasePage", "schemaVersion", "version"]);
+  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.product, "Grok Bot");
+  assert.equal(manifest.version, "0.24.0");
+  assert.equal(manifest.releasePage, "https://x.ai/bot");
+  assert.deepEqual(manifest.artifacts, [{
+    platform: "macOS",
+    architecture: "arm64",
+    bytes: 151965991,
+    sha256: "255873da42d2f19b27d7f34cdfb5b058002095ade883d8b321d6494f3cf6c615",
+    sourceUrl: "https://downloads.cursor.com/grokbot/stable/darwin-arm64/0.24.0/Grok_Bot_0.24.0.dmg",
+    appAsarSha256: "41f7d5008db4edcb198d9e466c9c1e776bb8a75a7651951257ff9a4f885a4540",
+    electronVersion: "42.1.0",
+    sourceMapsPresent: false,
+  }]);
 });

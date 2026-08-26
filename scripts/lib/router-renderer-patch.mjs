@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { upstreamVersion } from "./config.mjs";
+
 const REGISTRY_BEFORE = 'const wDn=[{id:"general",label:"General",icon:"settings-gear"},{id:"usage",label:"Usage & Billing",icon:"chart-bars"},{id:"beta",label:"Updates",icon:"cloud-download"}]';
 const REGISTRY_AFTER = 'const wDn=[{id:"general",label:"General",icon:"settings-gear"},{id:"router",label:"Router",icon:"git-branch"},{id:"usage",label:"Usage & Billing",icon:"chart-bars"},{id:"beta",label:"Updates",icon:"cloud-download"}]';
 const GENERAL_BEFORE = 'Q=x==="general"?a.jsx(Te,{children:a.jsx(Sa,{auth:t})}):null';
@@ -35,6 +37,39 @@ function RRouterUsageSummary({provider:s,usage:e,current:t,divided:n}){const r=[
 function RRouterUsage(){const[s]=RRouterState(),e=RRouterProviders.find(t=>t.value===s.provider)??RRouterProviders[0],t=RRouterProviders.filter(n=>n.value===s.provider||(s.usage?.providers?.[n.value]?.requests??0)>0);return a.jsxs("div",{className:k("sand-usage-section","sand-9f619 sand-78zum5 sand-dt5ytf sand-ou54vl"),children:[a.jsx(re,{title:"Current provider",children:a.jsx(ie,{description:e.description,label:e.label,variant:"card",children:a.jsx(se,{as:"span",color:"secondary",size:"sm",children:"Selected"})})}),a.jsx(re,{title:"Tracked activity",children:a.jsx("div",{children:t.map((n,r)=>a.jsx(RRouterUsageSummary,{provider:n,usage:s.usage?.providers?.[n.value]??RRouterEmptyUsage,current:n.value===s.provider,divided:r>0},n.value))})}),s.provider==="cursor"?a.jsx(Na,{}):null]})}
 `;
 
+const V024_ENTRYPOINT_SUFFIX = 'AZn=Object.freeze(Object.defineProperty({__proto__:null,default:W5t},Symbol.toStringTag,{value:"Module"}));';
+const V024_ENTRYPOINT_PATCH = 'AZn=Object.freeze(Object.defineProperty({__proto__:null,default:W5t},Symbol.toStringTag,{value:"Module"})),RRouterEntry=jf({availability:()=>({kind:"available"})}),RRouterModule=Object.freeze(Object.defineProperty({__proto__:null,default:RRouterEntry},Symbol.toStringTag,{value:"Module"}));';
+const V024_ENTRYPOINT_CATALOG = '"./features/settings/overlay/usage/entrypoint.ts":AZn})';
+const V024_ENTRYPOINT_CATALOG_PATCH = '"./features/settings/overlay/usage/entrypoint.ts":AZn,"./features/settings/overlay/router/entrypoint.ts":RRouterModule})';
+const V024_VIEW_CATALOG_SUFFIX = '"./features/settings/overlay/view.tsx":()=>rn(()=>import("./view-BSreDog9.js"),__vite__mapDeps([12,13,4]),import.meta.url)});function QZn()';
+const V024_VIEW_CATALOG_PATCH = '"./features/settings/overlay/view.tsx":()=>rn(()=>import("./view-BSreDog9.js"),__vite__mapDeps([12,13,4]),import.meta.url),"./features/settings/overlay/router/view.tsx":()=>Promise.resolve({default:RRouterView})});function QZn()';
+const V024_SETTINGS_IDS = 'settingsUsage:"overlay:settings/usage",settingsBeta:"overlay:settings/beta"';
+const V024_SETTINGS_IDS_PATCH = 'settingsUsage:"overlay:settings/usage",settingsBeta:"overlay:settings/beta",settingsRouter:"overlay:settings/router"';
+const V024_SETTINGS_LINKS = 'eXn={general:aa.settings,usage:aa.settingsUsage,beta:aa.settingsBeta}';
+const V024_SETTINGS_LINKS_PATCH = 'eXn={general:aa.settings,usage:aa.settingsUsage,beta:aa.settingsBeta,router:aa.settingsRouter}';
+const V024_SETTINGS_REGISTRY = 'const $ts=[{id:"general",label:{id:"Weq9zb"},icon:"settings-gear",entrypoint:G5t},{id:"usage",label:{id:"6BjldL"},icon:"chart-bars",entrypoint:W5t},{id:"beta",label:{id:"qIrtcK"},icon:"cloud-download",entrypoint:V5t}]';
+const V024_SETTINGS_REGISTRY_PATCH = 'const $ts=[{id:"general",label:{id:"Weq9zb"},icon:"settings-gear",entrypoint:G5t},{id:"router",label:{id:"onebotRouter",message:"Router"},icon:"git-branch",entrypoint:RRouterEntry},{id:"usage",label:{id:"6BjldL"},icon:"chart-bars",entrypoint:W5t},{id:"beta",label:{id:"qIrtcK"},icon:"cloud-download",entrypoint:V5t}]';
+const V024_COMPONENT_SOURCE = String.raw`
+const RRouterProviders=[
+  {value:"cursor",label:"Cursor"},
+  {value:"claude-code",label:"Claude Code"},
+  {value:"codex",label:"Codex"},
+  {value:"openrouter",label:"OpenRouter"}
+],RRouterPanelStyle={boxSizing:"border-box",color:"var(--color-text-primary, inherit)",display:"flex",flexDirection:"column",gap:24,maxWidth:760,padding:"28px 32px",width:"100%"},RRouterCardStyle={border:"1px solid rgba(127,127,127,.24)",borderRadius:12,display:"flex",flexDirection:"column",gap:12,padding:16},RRouterLabelStyle={display:"flex",flexDirection:"column",fontSize:13,fontWeight:600,gap:8},RRouterControlStyle={background:"var(--color-bg-secondary, rgba(127,127,127,.12))",border:"1px solid rgba(127,127,127,.3)",borderRadius:8,color:"inherit",fontSize:13,minHeight:36,padding:"0 10px"};
+function RRouterButtonStyle(n){return{...RRouterControlStyle,background:n?"var(--color-accent-primary, #4f8cff)":"var(--color-bg-secondary, rgba(127,127,127,.12))",color:n?"white":"inherit",cursor:"pointer",padding:"0 14px"}}
+function RRouterView(){
+  const[n,e]=S.useState({provider:"cursor",useLocalCodexCli:!1,mode:"remote",status:null,error:null,busy:!0});
+  S.useEffect(()=>{let t=!0;Promise.all([window.desktop.agent.getInferenceRouter(),window.desktop.agent.getBoxRuntime()]).then(([s,r])=>{t&&e(i=>({...i,...s,...r,error:null,busy:!1}))}).catch(s=>{t&&e(r=>({...r,error:String(s?.message??s),busy:!1}))});return()=>{t=!1}},[]);
+  const t=async s=>{e(r=>({...r,provider:s,busy:!0,error:null}));try{const r=await window.desktop.agent.setInferenceRouter(s);e(i=>({...i,...r,busy:!1,error:null}))}catch(r){e(i=>({...i,busy:!1,error:String(r?.message??r)}))}},s=async r=>{e(i=>({...i,mode:r,busy:!0,error:null}));try{const i=await window.desktop.agent.setBoxRuntime(r);e(o=>({...o,...i,busy:!1,error:null}))}catch(i){e(o=>({...o,busy:!1,error:String(i?.message??i)}))}},r=async i=>{e(o=>({...o,useLocalCodexCli:i,busy:!0,error:null}));try{const o=await window.desktop.agent.setLocalCodexCliEnabled(i);e(l=>({...l,...o,busy:!1,error:null}))}catch(o){e(l=>({...l,busy:!1,error:String(o?.message??o)}))}};
+  return m.jsxs("div",{className:"onebot-router-settings",style:RRouterPanelStyle,children:[
+    m.jsxs("div",{children:[m.jsx("h2",{style:{fontSize:20,margin:"0 0 6px"},children:"Router"}),m.jsx("p",{style:{fontSize:13,margin:0,opacity:.7},children:"Choose the inference provider and Computer runtime used for new turns."})]}),
+    m.jsxs("section",{style:RRouterCardStyle,children:[m.jsx("strong",{children:"Inference"}),m.jsxs("label",{style:RRouterLabelStyle,children:["Provider",m.jsx("select",{"aria-label":"Routing provider",disabled:n.busy,onChange:i=>void t(i.currentTarget.value),style:RRouterControlStyle,value:n.provider,children:RRouterProviders.map(i=>m.jsx("option",{value:i.value,children:i.label},i.value))})]}),n.provider==="codex"?m.jsxs("label",{style:{alignItems:"center",display:"flex",fontSize:13,gap:8},children:[m.jsx("input",{checked:n.useLocalCodexCli,disabled:n.busy,onChange:i=>void r(i.currentTarget.checked),type:"checkbox"}),"Use local Codex CLI"]}):null]}),
+    m.jsxs("section",{style:RRouterCardStyle,children:[m.jsx("strong",{children:"Computer"}),m.jsx("div",{style:{display:"flex",flexWrap:"wrap",gap:8},children:["remote","local-docker","aone-sandbox"].map(i=>m.jsx("button",{disabled:n.busy,onClick:()=>void s(i),style:RRouterButtonStyle(n.mode===i),type:"button",children:i==="remote"?"Remote":i==="local-docker"?"Local Docker":"Aone Sandbox"},i))}),m.jsx("small",{style:{opacity:.7},children:n.status?.detail??"The selected runtime is used for shell, files, browser and visual computer tools."})]}),
+    n.error?m.jsx("p",{role:"alert",style:{color:"#e05252",fontSize:13,margin:0},children:n.error}):null
+  ]})
+}
+`;
+
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -60,6 +95,16 @@ export function patchOriginalBranding(source) {
   return source.replaceAll(ORIGINAL_PRODUCT_NAME, PRODUCT_NAME);
 }
 
+export function patch024RendererIndex(source) {
+  let patched = replaceExactlyOnce(source, V024_ENTRYPOINT_SUFFIX, V024_ENTRYPOINT_PATCH, "0.24 Router entrypoint");
+  patched = replaceExactlyOnce(patched, V024_ENTRYPOINT_CATALOG, V024_ENTRYPOINT_CATALOG_PATCH, "0.24 entrypoint catalog");
+  patched = replaceExactlyOnce(patched, V024_VIEW_CATALOG_SUFFIX, V024_VIEW_CATALOG_PATCH, "0.24 view catalog");
+  patched = replaceExactlyOnce(patched, V024_SETTINGS_IDS, V024_SETTINGS_IDS_PATCH, "0.24 settings ids");
+  patched = replaceExactlyOnce(patched, V024_SETTINGS_LINKS, V024_SETTINGS_LINKS_PATCH, "0.24 settings links");
+  patched = replaceExactlyOnce(patched, V024_SETTINGS_REGISTRY, `${V024_COMPONENT_SOURCE}${V024_SETTINGS_REGISTRY_PATCH}`, "0.24 settings registry");
+  return patched;
+}
+
 export async function applyOriginalRendererRouterPatch({ stageRoot }) {
   const rendererRoot = path.join(stageRoot, "dist", "renderer");
   const assetsRoot = path.join(stageRoot, "dist", "renderer", "assets");
@@ -74,6 +119,41 @@ export async function applyOriginalRendererRouterPatch({ stageRoot }) {
     assets.push(candidate);
     if (source.includes(REGISTRY_BEFORE)) registryCandidates.push(candidate);
     if (source.includes(COMPONENT_ANCHOR) && source.includes(GENERAL_BEFORE) && source.includes(USAGE_BEFORE)) panelCandidates.push(candidate);
+  }
+  if (upstreamVersion === "0.24.0") {
+    const indexCandidates = assets.filter(candidate => candidate.source.includes(V024_SETTINGS_REGISTRY));
+    if (indexCandidates.length !== 1) throw new Error(`Expected one 0.24 renderer index chunk, found ${indexCandidates.length}.`);
+    const indexTarget = path.join(rendererRoot, "index.html");
+    const candidates = [{ name: "index.html", target: indexTarget, source: await readFile(indexTarget, "utf8") }, ...assets];
+    const changes = [];
+    for (const candidate of candidates) {
+      let role = "branding";
+      let patched = candidate.source;
+      if (candidate.target === indexCandidates[0].target) {
+        role = "router-entrypoint";
+        patched = patch024RendererIndex(patched);
+      }
+      patched = patchOriginalBranding(patched);
+      if (patched === candidate.source) continue;
+      await writeFile(candidate.target, patched);
+      changes.push({
+        role,
+        path: path.relative(stageRoot, candidate.target).split(path.sep).join("/"),
+        original: { bytes: Buffer.byteLength(candidate.source), sha256: sha256(candidate.source) },
+        patched: { bytes: Buffer.byteLength(patched), sha256: sha256(patched) },
+      });
+    }
+    const record = {
+      schemaVersion: 2,
+      upstreamVersion,
+      mode: "upstream-renderer-settings-extension",
+      chunks: changes,
+      features: ["onebot-branding", "settings-router-provider", "settings-local-codex-cli", "settings-computer-runtime"],
+      transformations: ["product-branding", "entrypoint-catalog", "view-catalog", "settings-registry", "router-view"],
+    };
+    const provenancePath = path.join(stageRoot, "dist", "renderer-router-extension.json");
+    await writeFile(provenancePath, `${JSON.stringify(record, null, 2)}\n`);
+    return { ...record, provenancePath, provenanceBytes: (await stat(provenancePath)).size };
   }
   if (registryCandidates.length !== 1 || panelCandidates.length !== 1) {
     throw new Error(`Expected one original Settings registry and panel chunk, found ${registryCandidates.length}/${panelCandidates.length}.`);

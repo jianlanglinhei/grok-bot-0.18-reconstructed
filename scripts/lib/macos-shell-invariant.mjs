@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
-export const officialMacReleaseShellHash = "7fcdbad6228f0b7b90078c9f81968d9246c7f904e62cc5f2bce96dc504e3383e";
-export const officialMacReleaseAsarHash = "6665408168466f9cacc6087e917890c17f59d2e2e9c2404a5c4a59ad79c1de58";
+export const officialMacReleaseShellHash = "c958d80cdd126cb95f1d60ef6bf451037a7569994a75a6c06b2863ae0781250a";
+export const officialMacReleaseAsarHash = "41f7d5008db4edcb198d9e466c9c1e776bb8a75a7651951257ff9a4f885a4540";
 export const expectedSignatureExcludedMachOHash = "0076e3c5a6fda431b0a0c5bf25510c4b37562ff178d4f2053bac32f3885d6875";
 
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");

@@ -25,15 +25,18 @@ import {
   fidelityStagedAppDir,
   repoRoot,
   stagedAppDir,
+  upstreamVersion,
 } from "./lib/config.mjs";
 import { compositionAuditPath, writeRuntimeCompositionAudit } from "./audit-runtime-composition.mjs";
 import {
   buildProductionHostIfSupplied,
   hostBindingProvenancePath,
+  requiredHostProductionBindings,
 } from "./host-production-activation.mjs";
 import {
   buildProductionElectronMainIfSupplied,
   electronMainBindingProvenancePath,
+  requiredElectronMainProductionBindings,
 } from "./electron-main-production-activation.mjs";
 import { applyOriginalRendererRouterPatch } from "./lib/router-renderer-patch.mjs";
 
@@ -73,10 +76,31 @@ async function outputRecord(outputRoot, relative) {
 }
 
 async function prepareProductionActivations(clean, hostBindingManifest, electronMainBindingManifest, composition = runtimeComposition, { reconstructedPackage = false } = {}) {
-  const [hostActivation, electronMainActivation] = await Promise.all([
-    buildProductionHostIfSupplied({ outputRoot: clean.outputRoot, manifestPath: hostBindingManifest }),
-    buildProductionElectronMainIfSupplied({ outputRoot: clean.outputRoot, manifestPath: electronMainBindingManifest, reconstructedPackage }),
-  ]);
+  const sourceActivationBaseline = "0.18.0";
+  const versionBlocker = `Reviewed clean-source production bindings target upstream ${sourceActivationBaseline}; ${upstreamVersion} artifact anchors and contracts have not been revalidated.`;
+  const [hostActivation, electronMainActivation] = upstreamVersion === sourceActivationBaseline
+    ? await Promise.all([
+        buildProductionHostIfSupplied({ outputRoot: clean.outputRoot, manifestPath: hostBindingManifest }),
+        buildProductionElectronMainIfSupplied({ outputRoot: clean.outputRoot, manifestPath: electronMainBindingManifest, reconstructedPackage }),
+      ])
+    : [
+        {
+          status: "blocked-upstream-version-drift",
+          clean: false,
+          blocker: versionBlocker,
+          requiredBindings: requiredHostProductionBindings,
+          boundBindings: [],
+          unboundBindings: requiredHostProductionBindings,
+        },
+        {
+          status: "blocked-upstream-version-drift",
+          clean: false,
+          blocker: versionBlocker,
+          requiredBindings: requiredElectronMainProductionBindings,
+          boundBindings: [],
+          unboundBindings: requiredElectronMainProductionBindings,
+        },
+      ];
   const activatedComposition = compositionWithProductionActivations(hostActivation, electronMainActivation, composition);
   const excludedFallbacks = new Set(fallbackSourcesReplacedByActivations(hostActivation, electronMainActivation));
   let outputs = clean.buildManifest.outputs.filter(output => !excludedFallbacks.has(output.path));

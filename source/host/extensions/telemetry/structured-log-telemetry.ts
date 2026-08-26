@@ -278,7 +278,7 @@ export class SandStructuredLogTelemetry {
         client: SAND_CLIENT_TYPE,
         "client.type": SAND_CLIENT_TYPE,
         client_version: getSandClientVersion(),
-        app_version: options.appVersion ?? "0.18.0",
+        app_version: options.appVersion ?? "0.24.0",
         arch: process.arch,
         platform: process.platform,
         ...(options.identityTags ?? resolveSandBoxIdentityTags()),

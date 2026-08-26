@@ -50,7 +50,7 @@ export async function shipSettlement(options: SessionSettlementShipperOptions, s
       "client.type": "sand",
       "client.machine_id": machineId,
       client_version: options.getClientVersion(),
-      app_version: options.appVersion ?? "0.18.0",
+      app_version: options.appVersion ?? "0.24.0",
       arch: options.arch ?? process.arch,
       platform: options.platform ?? process.platform,
       ...projection.metadata,

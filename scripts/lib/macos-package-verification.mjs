@@ -10,6 +10,7 @@ import {
   officialMacReleaseAsarHash,
   officialMacReleaseShellHash,
 } from "./macos-shell-invariant.mjs";
+import { upstreamVersion } from "./config.mjs";
 
 // Electron and daemon-native payloads are separate runtime domains. Both are
 // unpacked from the ASAR and must remain byte-identical to their staged trees;
@@ -42,7 +43,7 @@ export async function verifyChecksumPinnedRendererPackage({
     throw new Error("Fidelity renderer provenance contract is invalid");
   }
   if (provenance.upstreamAppAsarSha256 !== officialMacReleaseAsarHash) {
-    throw new Error("Fidelity renderer provenance is not bound to the canonical shipped 0.18 Mac ASAR");
+    throw new Error(`Fidelity renderer provenance is not bound to the canonical shipped ${upstreamVersion} Mac ASAR`);
   }
   const expectedFiles = new Map();
   for (const record of provenance.files) {
@@ -81,7 +82,7 @@ export async function verifyChecksumPinnedRendererPackage({
     }
     officialFiles.sort();
     if (JSON.stringify(officialFiles) !== JSON.stringify([...expectedFiles.keys()])) {
-      throw new Error("Renderer provenance inventory differs from the canonical shipped 0.18 Mac ASAR");
+      throw new Error(`Renderer provenance inventory differs from the canonical shipped ${upstreamVersion} Mac ASAR`);
     }
     for (const [relative, expected] of expectedFiles) {
       const official = extractFile(officialArchivePath, `dist/renderer/${relative}`);
@@ -94,15 +95,25 @@ export async function verifyChecksumPinnedRendererPackage({
   try {
     const bytes = extractFile(archivePath, rendererExtensionPath);
     const parsed = JSON.parse(bytes.toString("utf8"));
-    if (parsed?.schemaVersion !== 1 || parsed?.mode !== "original-renderer-settings-extension" || !Array.isArray(parsed.chunks)) {
+    const latestExtension = parsed?.schemaVersion === 2
+      && parsed?.upstreamVersion === upstreamVersion
+      && parsed?.mode === "upstream-renderer-settings-extension";
+    const legacyExtension = parsed?.schemaVersion === 1
+      && parsed?.mode === "original-renderer-settings-extension";
+    if ((!legacyExtension && !latestExtension) || !Array.isArray(parsed.chunks)) {
       throw new Error("Renderer extension provenance contract is invalid");
     }
-    const allowedKeys = ["schemaVersion", "mode", "chunks", "features", "transformations"];
+    const allowedKeys = legacyExtension
+      ? ["schemaVersion", "mode", "chunks", "features", "transformations"]
+      : ["schemaVersion", "upstreamVersion", "mode", "chunks", "features", "transformations"];
+    const allowedRoles = legacyExtension
+      ? new Set(["branding", "registry", "panel"])
+      : new Set(["branding", "router-entrypoint"]);
     if (Object.keys(parsed).sort().join("\0") !== allowedKeys.sort().join("\0")) throw new Error("Renderer extension provenance has unknown fields");
     const chunks = new Map();
     for (const row of parsed.chunks) {
       const relative = typeof row?.path === "string" && row.path.startsWith("dist/renderer/") ? row.path.slice("dist/renderer/".length) : null;
-      if (relative == null || !expectedFiles.has(relative) || chunks.has(relative) || !["branding", "registry", "panel"].includes(row.role)
+      if (relative == null || !expectedFiles.has(relative) || chunks.has(relative) || !allowedRoles.has(row.role)
         || !Number.isInteger(row.original?.bytes) || !/^[0-9a-f]{64}$/.test(row.original?.sha256)
         || !Number.isInteger(row.patched?.bytes) || !/^[0-9a-f]{64}$/.test(row.patched?.sha256)) {
         throw new Error("Renderer extension chunk provenance is invalid");

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "product": "Grok Bot",
+  "version": "0.24.0",
+  "releasePage": "https://x.ai/bot",
+  "artifacts": [
+    {
+      "platform": "macOS",
+      "architecture": "arm64",
+      "bytes": 151965991,
+      "sha256": "255873da42d2f19b27d7f34cdfb5b058002095ade883d8b321d6494f3cf6c615",
+      "sourceUrl": "https://downloads.cursor.com/grokbot/stable/darwin-arm64/0.24.0/Grok_Bot_0.24.0.dmg",
+      "appAsarSha256": "41f7d5008db4edcb198d9e466c9c1e776bb8a75a7651951257ff9a4f885a4540",
+      "electronVersion": "42.1.0",
+      "sourceMapsPresent": false
+    }
+  ]
+}

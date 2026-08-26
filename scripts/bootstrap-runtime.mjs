@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { archivedDmg, cachedDmg, cachedRuntimeApp, dmgSha256, dmgUrl } from "./lib/config.mjs";
+import { archivedDmg, cachedDmg, cachedRuntimeApp, dmgSha256, dmgUrl, upstreamVersion } from "./lib/config.mjs";
 import { run } from "./lib/process.mjs";
 import { cacheRuntimeFromApp, hydrateSourcePayloadFromRuntime, validateRuntimeApp } from "./lib/runtime.mjs";
 import { SYSTEM_TOOLS } from "./lib/system-tools.mjs";
@@ -60,7 +60,7 @@ async function downloadDmg() {
 }
 
 async function extractRuntime() {
-  const mountRoot = await mkdtemp(path.join(tmpdir(), "onebot-018-mount-"));
+  const mountRoot = await mkdtemp(path.join(tmpdir(), `onebot-${upstreamVersion.replaceAll(".", "-")}-mount-`));
   let attached = false;
   try {
     await run(SYSTEM_TOOLS.hdiutil, ["attach", "-readonly", "-nobrowse", "-mountpoint", mountRoot, cachedDmg]);
@@ -72,7 +72,7 @@ async function extractRuntime() {
   }
 }
 
-const configuredApp = process.env.ONEBOT_018_APP?.trim();
+const configuredApp = process.env.ONEBOT_UPSTREAM_APP?.trim() || process.env.ONEBOT_018_APP?.trim();
 let runtimeApp;
 if (configuredApp) {
   runtimeApp = await cacheRuntimeFromApp(configuredApp);

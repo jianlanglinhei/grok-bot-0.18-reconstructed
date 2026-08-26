@@ -10,6 +10,8 @@ the reconstructed implementation safe to redistribute. Anyone publishing or
 distributing this repository should independently review copyright, trademark,
 third-party dependency, and service-terms obligations.
 
-The repository preserves pinned Grok Bot 0.18.0 macOS and Windows installers
-through Git LFS for research continuity. Those artifacts remain subject to their
-own terms and are not covered by any license applied to reconstructed code.
+The current Grok Bot 0.24.0 macOS artifact is a checksum-pinned, on-demand build
+input. The repository also preserves historical 0.18.0 macOS and Windows
+installers through Git LFS for research continuity. Those artifacts remain
+subject to their own terms and are not covered by any license applied to
+reconstructed code.

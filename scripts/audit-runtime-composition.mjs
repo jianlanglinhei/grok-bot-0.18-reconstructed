@@ -9,7 +9,7 @@ import { extractFile, listPackage } from "@electron/asar";
 import { build as esbuild } from "esbuild";
 
 import { runtimeComposition } from "./lib/clean-build.mjs";
-import { repoRoot, sourceAppDir } from "./lib/config.mjs";
+import { repoRoot, sourceAppDir, upstreamVersion } from "./lib/config.mjs";
 import { requiredElectronMainProductionBindings } from "./electron-main-production-activation.mjs";
 import { assembleHostProductionBindingManifest } from "./host-production-activation.mjs";
 
@@ -193,6 +193,21 @@ function anchorFor(text, artifact, needle, start = 0) {
     sourceMarker: sourceMarkerBefore(text, offset),
     needle,
   };
+}
+
+const artifactEvidenceBaseline = "0.18.0";
+
+function versionedArtifactAnchor(text, artifact, needle, start = 0) {
+  if (upstreamVersion !== artifactEvidenceBaseline) {
+    return {
+      artifact,
+      status: "not-revalidated-for-upstream-version",
+      evidenceBaseline: artifactEvidenceBaseline,
+      upstreamVersion,
+      needle,
+    };
+  }
+  return anchorFor(text, artifact, needle, start);
 }
 
 function interfaceMembers(sourceText, fileName, interfaceName) {
@@ -501,13 +516,13 @@ async function runnerCompositionClosure({ hostGraph, hostProductionExtensionsGra
       nonClosureFidelityResiduals: activeFidelityResiduals,
     },
     immutableConstructionOrder: [
-      { step: "start-host-extension-graph", anchor: anchorFor(artifactText, artifact, "const hostExtensions = await startHostPluginRegistry({") },
-      { step: "create-roster-bookkeeping", anchor: anchorFor(artifactText, artifact, "this.rosterBookkeeping = createHostRosterBookkeeping(hostExtensions);") },
-      { step: "create-runner-composition", anchor: anchorFor(artifactText, artifact, "this.runnerComposition = createHostRunnerComposition({") },
-      { step: "bind-local-permission-surfaces", anchor: anchorFor(artifactText, artifact, "hostExtensions.api(\"local-tool-permission\").bindAskSurfaces(") },
-      { step: "bind-turn-executor", anchor: anchorFor(artifactText, artifact, "hostExtensions.api(\"turn-execution\").bindExecutor({") },
-      { step: "construct-runner-on-demand", anchor: anchorFor(artifactText, artifact, "const runner = new SandAgentRunner({") },
-      { step: "dispose-runner-before-extension-stop", anchor: anchorFor(artifactText, artifact, "await this.runnerComposition?.dispose();") },
+      { step: "start-host-extension-graph", anchor: versionedArtifactAnchor(artifactText, artifact, "const hostExtensions = await startHostPluginRegistry({") },
+      { step: "create-roster-bookkeeping", anchor: versionedArtifactAnchor(artifactText, artifact, "this.rosterBookkeeping = createHostRosterBookkeeping(hostExtensions);") },
+      { step: "create-runner-composition", anchor: versionedArtifactAnchor(artifactText, artifact, "this.runnerComposition = createHostRunnerComposition({") },
+      { step: "bind-local-permission-surfaces", anchor: versionedArtifactAnchor(artifactText, artifact, "hostExtensions.api(\"local-tool-permission\").bindAskSurfaces(") },
+      { step: "bind-turn-executor", anchor: versionedArtifactAnchor(artifactText, artifact, "hostExtensions.api(\"turn-execution\").bindExecutor({") },
+      { step: "construct-runner-on-demand", anchor: versionedArtifactAnchor(artifactText, artifact, "const runner = new SandAgentRunner({") },
+      { step: "dispose-runner-before-extension-stop", anchor: versionedArtifactAnchor(artifactText, artifact, "await this.runnerComposition?.dispose();") },
     ],
     cleanConstructionAnchors: [
       { step: "create-roster-bookkeeping", anchor: anchorFor(sandHostText, sandHostSource, "this.rosterBookkeeping = createHostRosterBookkeeping(extensions);") },
@@ -800,7 +815,7 @@ export async function createRuntimeCompositionAudit({ outputRoot = null, require
         ...member,
         status,
         cleanProvider,
-        artifactAnchor: anchorFor(artifactText, spec.artifact, needle, artifactText.lastIndexOf(spec.artifactSourceMarker)),
+        artifactAnchor: versionedArtifactAnchor(artifactText, spec.artifact, needle, artifactText.lastIndexOf(spec.artifactSourceMarker)),
       };
     });
     const nestedContracts = [];
@@ -842,14 +857,16 @@ export async function createRuntimeCompositionAudit({ outputRoot = null, require
       ...(runtimeName === "electron-main" ? { bindingManifest: electronMainActivation ?? { status: "not-supplied", clean: false, requiredBindings: requiredElectronMainProductionBindings } } : {}),
       ...(runtimeName === "electron-main" ? { productionAdapterGraph: electronAdapterEvidence } : {}),
       ...(runtimeName === "host" ? { bindingManifest: effectiveHostActivation } : {}),
-      constructorFactoryClosure: factoryInventory(artifactText, spec.artifact, spec.artifactSourceMarker, cleanExports),
+      constructorFactoryClosure: upstreamVersion === artifactEvidenceBaseline
+        ? factoryInventory(artifactText, spec.artifact, spec.artifactSourceMarker, cleanExports)
+        : [],
       generatedBindingClosure: generatedBindings(artifactText, spec.artifact),
       externalRuntimeBoundaries: externalRequires(artifactText, spec.artifact),
       artifact: {
         path: spec.artifact,
         bytes: artifactBytes.byteLength,
         sha256: sha256(artifactBytes),
-        compositionAnchor: anchorFor(artifactText, spec.artifact, spec.artifactSourceMarker, artifactText.lastIndexOf(spec.artifactSourceMarker)),
+        compositionAnchor: versionedArtifactAnchor(artifactText, spec.artifact, spec.artifactSourceMarker, artifactText.lastIndexOf(spec.artifactSourceMarker)),
       },
     };
   }
@@ -898,7 +915,7 @@ export async function createRuntimeCompositionAudit({ outputRoot = null, require
   };
   return {
     schemaVersion: 1,
-    upstreamVersion: "0.18.0",
+    upstreamVersion,
     generatedBy: "scripts/audit-runtime-composition.mjs",
     policy: {
       cleanRuntime: "A clean-source declaration is accepted only when its declared entry graph avoids immutable src/app/capsule inputs and its emitted runtime carries deterministic clean-source provenance. Renderer evidence paths may remain as inert provenance strings but never as bundle inputs.",

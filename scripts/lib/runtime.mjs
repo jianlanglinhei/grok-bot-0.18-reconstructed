@@ -30,14 +30,14 @@ export async function validateRuntimeApp(appPath) {
 }
 
 export async function resolveRuntimeApp() {
-  const configured = process.env.ONEBOT_018_APP?.trim();
+  const configured = process.env.ONEBOT_UPSTREAM_APP?.trim() || process.env.ONEBOT_018_APP?.trim();
   if (configured) {
     return await validateRuntimeApp(path.resolve(configured));
   }
   if (await exists(cachedRuntimeApp)) {
     return await validateRuntimeApp(cachedRuntimeApp);
   }
-  throw new Error("Missing 0.18.0 runtime. Run `npm run bootstrap` first.");
+  throw new Error(`Missing ${upstreamVersion} runtime. Run \`npm run bootstrap\` first.`);
 }
 
 export async function cacheRuntimeFromApp(source) {
@@ -61,7 +61,7 @@ export async function hydrateSourcePayloadFromAsar(archive, {
 
   const hydrationRoot = path.join(cacheDir, "source-payloads");
   await mkdir(hydrationRoot, { recursive: true });
-  const temporary = await mkdtemp(path.join(hydrationRoot, "onebot-018-"));
+  const temporary = await mkdtemp(path.join(hydrationRoot, `onebot-${upstreamVersion.replaceAll(".", "-")}-`));
   try {
     extractAll(archive, temporary);
     for (const required of [

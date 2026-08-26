@@ -8,7 +8,8 @@ import {
   reconstructedName,
   repoRoot,
   sourceAppDir,
-  stagedAppDir
+  stagedAppDir,
+  upstreamVersion
 } from "./config.mjs";
 import { packStagedAppWithIntegrity } from "./asar-integrity.mjs";
 import { resolveRuntimeApp } from "./runtime.mjs";
@@ -99,24 +100,26 @@ function enableReconstructedDevSeams(source) {
   return patched;
 }
 
+function replaceUniquePattern(source, pattern, replacer, label) {
+  const matches = [...source.matchAll(pattern)];
+  if (matches.length !== 1) throw new Error(`Cannot enable reconstructed runtime seam; ${label} matched ${matches.length} times.`);
+  return source.replace(pattern, replacer);
+}
+
 function enableReconstructedRuntimeSeams(source) {
-  const replacements = [
-    {
-      from: "var isSandLabBuild2 = appPackageJson.sandLab === true;",
-      to: "var isSandLabBuild2 = appPackageJson.sandLab === true || process.env.ONEBOT_RECONSTRUCTED_DEV === \"1\";"
-    },
-    {
-      from: "var isPrimaryInstance = !import_electron51.app.isPackaged || import_electron51.app.requestSingleInstanceLock();",
-      to: "var isPrimaryInstance = process.env.ONEBOT_RECONSTRUCTED_DEV === \"1\" || !import_electron51.app.isPackaged || import_electron51.app.requestSingleInstanceLock();"
-    }
-  ];
   let patched = source;
-  for (const { from, to } of replacements) {
-    if (!patched.includes(from)) {
-      throw new Error(`Cannot enable reconstructed runtime seam; upstream anchor changed: ${from}`);
-    }
-    patched = patched.replace(from, to);
-  }
+  patched = replaceUniquePattern(
+    patched,
+    /((?:var\s+|,)\s*)([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\.sandLab\s*===\s*(?:!0|true)\s*;/g,
+    (_match, prefix, declaration, packageJson) => `${prefix}${declaration}=${packageJson}.sandLab===!0||process.env.ONEBOT_RECONSTRUCTED_DEV===\"1\";`,
+    "sandLab build flag",
+  );
+  patched = replaceUniquePattern(
+    patched,
+    /var\s+([A-Za-z_$][\w$]*)\s*=\s*!([A-Za-z_$][\w$]*)\.app\.isPackaged\s*\|\|\s*\2\.app\.requestSingleInstanceLock\(\)\s*;/g,
+    (_match, declaration, electronImport) => `var ${declaration}=process.env.ONEBOT_RECONSTRUCTED_DEV===\"1\"||!${electronImport}.app.isPackaged||${electronImport}.app.requestSingleInstanceLock();`,
+    "single-instance lock",
+  );
   return patched;
 }
 
@@ -153,7 +156,7 @@ export async function buildAsar({
   const stagedPackage = JSON.parse(await readFile(stagedPackagePath, "utf8"));
   if (process.env.ONEBOT_BUILD_DEV_APP === "1") {
     stagedPackage.sandLab = true;
-    stagedPackage.productName = "onebot 0.18 Dev";
+    stagedPackage.productName = `onebot ${upstreamVersion.replace(/\.0$/, "")} Dev`;
   } else {
     stagedPackage.productName = reconstructedName;
   }

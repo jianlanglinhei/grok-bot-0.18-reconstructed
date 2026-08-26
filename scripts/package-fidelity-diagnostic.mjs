@@ -8,7 +8,7 @@ import { extractFile } from "@electron/asar";
 
 import { buildFidelityReconstructedAsar } from "./clean-build.mjs";
 import { signAppBundleAdHoc } from "./lib/codesign.mjs";
-import { outputDir, repoRoot, sourceAppDir } from "./lib/config.mjs";
+import { outputDir, repoRoot, sourceAppDir, upstreamVersion } from "./lib/config.mjs";
 import {
   verifyChecksumPinnedRendererPackage,
   verifyOfficialMacReference,
@@ -49,7 +49,8 @@ const renderer = await verifyChecksumPinnedRendererPackage({
 });
 const asarSha256 = sha256(await readFile(archivePath));
 const shortHash = asarSha256.slice(0, 12);
-const appName = `onebot 0.18 Fidelity Diagnostic-${shortHash}.app`;
+const fidelityVersion = upstreamVersion.replace(/\.0$/, "");
+const appName = `onebot ${fidelityVersion} Fidelity Diagnostic-${shortHash}.app`;
 const stagedApp = path.join(outputDir, appName);
 const installedApp = path.join("/Applications", appName);
 if (existsSync(stagedApp) || existsSync(installedApp)) {
@@ -70,7 +71,7 @@ await cp(unpackedRoot, packagedUnpacked, { recursive: true, dereference: false, 
 const infoPlist = path.join(stagedApp, "Contents", "Info.plist");
 await run(SYSTEM_TOOLS.plutil, ["-remove", "ElectronAsarIntegrity", infoPlist]);
 await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleIdentifier", "-string", `com.jianlanglinhei.onebot.fidelity.diagnostic.build${shortHash}`, infoPlist]);
-await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleDisplayName", "-string", `onebot 0.18 Fidelity Diagnostic-${shortHash}`, infoPlist]);
+await run(SYSTEM_TOOLS.plutil, ["-replace", "CFBundleDisplayName", "-string", `onebot ${fidelityVersion} Fidelity Diagnostic-${shortHash}`, infoPlist]);
 await run(SYSTEM_TOOLS.plutil, ["-remove", "CFBundleURLTypes", infoPlist]);
 await rm(path.join(stagedApp, "Contents", "_CodeSignature"), { recursive: true, force: true });
 await signAppBundleAdHoc(stagedApp);

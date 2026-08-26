@@ -16,6 +16,7 @@ import {
   builtAsarUnpacked,
   repoRoot,
   stagedAppDir,
+  upstreamVersion,
 } from "./config.mjs";
 import { packStagedAppWithIntegrity, verifyStagedPackageIntegrity } from "./asar-integrity.mjs";
 import { officialMacReleaseAsarHash } from "./macos-shell-invariant.mjs";
@@ -65,11 +66,11 @@ export const runtimeComposition = Object.freeze([
   { runtime: "box-exec-daemon", path: "dist/box-exec-daemon/main.cjs", mode: "clean-source", source: "source/box-exec-daemon/main.ts", entrypoint: "source/box-exec-daemon/cli.ts" },
   { runtime: "local-exec-daemon", path: "dist/local-exec-daemon/main.cjs", mode: "clean-source", source: "source/local-exec-daemon/main.ts" },
   { runtime: "renderer", path: "dist/renderer", mode: "clean-source", source: rendererProductionEntrypoint, entrypoint: rendererProductionEntrypoint, provenance: rendererProductionProvenance },
-  { runtime: "electron-runtime-dependencies", path: "dist/deps", mode: "artifact-runtime", reason: "ABI-matched native and packaged dependencies are copied from the checksum-pinned 0.18 runtime." },
+  { runtime: "electron-runtime-dependencies", path: "dist/deps", mode: "artifact-runtime", reason: `ABI-matched native and packaged dependencies are copied from the checksum-pinned ${upstreamVersion} runtime.` },
   { runtime: "electron-runtime-resolution-closure", path: "dist/deps/node_modules", mode: "generated-runtime", provenance: "dist/deps/runtime-deps-manifest.json", reason: "Byte-exact copies of checksum-pinned sibling packages provide standard Node package resolution for Electron utility-process native dependencies." },
   { runtime: "node-runtime-dependencies", path: "dist/node-deps", mode: "generated-runtime", reason: "Native parser packages are rebuilt for the local-exec daemon Node ABI at clean-build time; binaries are never source-controlled." },
-  { runtime: "native-runtime-tools", path: "dist/native", mode: "artifact-runtime", reason: "ABI-matched native executables are copied from the checksum-pinned 0.18 runtime." },
-  { runtime: "electron-shell", path: "Contents/Frameworks/Electron Framework.framework", mode: "artifact-runtime", reason: "The macOS package reuses the checksum-pinned, ABI-matched Electron 0.18 application shell and helper executables." },
+  { runtime: "native-runtime-tools", path: "dist/native", mode: "artifact-runtime", reason: `ABI-matched native executables are copied from the checksum-pinned ${upstreamVersion} runtime.` },
+  { runtime: "electron-shell", path: "Contents/Frameworks/Electron Framework.framework", mode: "artifact-runtime", reason: `The macOS package reuses the checksum-pinned, ABI-matched Electron ${upstreamVersion} application shell and helper executables.` },
 ]);
 
 export const fidelityRuntimeComposition = Object.freeze(runtimeComposition.map(runtime => (
@@ -79,7 +80,7 @@ export const fidelityRuntimeComposition = Object.freeze(runtimeComposition.map(r
     mode: "checksum-pinned-artifact-runtime",
     artifactRoot: "src/app/dist/renderer",
     provenance: rendererArtifactProvenance,
-    reason: "The exact shipped 0.18 Mac renderer bundle is preserved byte-for-byte and accepted only against its complete embedded SHA-256 inventory.",
+    reason: `The exact shipped ${upstreamVersion} Mac renderer bundle is preserved byte-for-byte and accepted only against its complete embedded SHA-256 inventory.`,
   }) : runtime
 )));
 
@@ -179,7 +180,7 @@ export async function createRendererArtifactProvenance({
   const inventorySha256 = createHash("sha256").update(JSON.stringify(files)).digest("hex");
   return {
     schemaVersion: 1,
-    upstreamVersion: "0.18.0",
+    upstreamVersion,
     upstreamAppAsarSha256: officialMacReleaseAsarHash,
     mode: "checksum-pinned-artifact-runtime",
     artifactRoot: relativeRoot,
@@ -233,7 +234,7 @@ async function buildRuntimeDistribution({ outputRoot, composition, rendererMode 
   for (const name of files) outputs.push({ path: name, bytes: (await stat(path.join(outputRoot, name))).size, sha256: await sha256(path.join(outputRoot, name)) });
   const buildManifest = {
     schemaVersion: 1,
-    upstreamVersion: "0.18.0",
+    upstreamVersion,
     buildKind: rendererMode === "clean-source" ? "source-aware-reconstruction" : "fidelity-hybrid-reconstruction",
     deterministicInputs: [
       "source",

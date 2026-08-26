@@ -11,6 +11,7 @@ import {
   repoRoot,
   sourceAppDir,
   upstreamAsarSha256,
+  upstreamVersion,
 } from "./lib/config.mjs";
 import { prepareReconstructedElectronMainArtifactFallback } from "./lib/build-asar.mjs";
 import { resolvePackagedAppArtifacts } from "./lib/packaged-app.mjs";
@@ -51,7 +52,15 @@ async function walkFiles(root, current = root) {
 const electronMain = await readFile(path.join(sourceAppDir, "dist", "electron-main", "main.cjs"), "utf8");
 const hostMain = await readFile(path.join(sourceAppDir, "dist", "host", "host-main.cjs"), "utf8");
 const sourceMarkers = (electronMain.match(/^\/\/ src\//gm) ?? []).length + (hostMain.match(/^\/\/ src\//gm) ?? []).length;
-if (sourceMarkers < 1_000) throw new Error(`Expected at least 1,000 surviving evidence source markers, found ${sourceMarkers}`);
+if (upstreamVersion === "0.18.0" && sourceMarkers < 1_000) {
+  throw new Error(`Expected at least 1,000 surviving evidence source markers, found ${sourceMarkers}`);
+}
+if (upstreamVersion !== "0.18.0") {
+  const debugIds = (electronMain.match(/^\/\/# debugId=/gm) ?? []).length + (hostMain.match(/^\/\/# debugId=/gm) ?? []).length;
+  if (debugIds !== 2 || electronMain.includes("sourceMappingURL=") || hostMain.includes("sourceMappingURL=")) {
+    throw new Error(`Expected two minified upstream debug IDs and no bundled source maps for ${upstreamVersion}`);
+  }
+}
 
 await requirePath(builtAsar);
 await requirePath(path.join(builtAsarUnpacked, "dist", "deps", "better-sqlite3", "build", "Release", "better_sqlite3.node"));
@@ -181,8 +190,18 @@ if (rendererComposition?.mode === "clean-source") {
   const rendererExtensionChunks = new Map();
   if (listing.has(`/${rendererExtensionPath}`)) {
     const rendererExtension = JSON.parse(extractFile(builtAsar, rendererExtensionPath).toString("utf8"));
-    const allowedKeys = ["schemaVersion", "mode", "chunks", "features", "transformations"];
-    if (rendererExtension.schemaVersion !== 1 || rendererExtension.mode !== "original-renderer-settings-extension" || !Array.isArray(rendererExtension.chunks)
+    const latestExtension = rendererExtension.schemaVersion === 2
+      && rendererExtension.upstreamVersion === upstreamVersion
+      && rendererExtension.mode === "upstream-renderer-settings-extension";
+    const legacyExtension = rendererExtension.schemaVersion === 1
+      && rendererExtension.mode === "original-renderer-settings-extension";
+    const allowedKeys = legacyExtension
+      ? ["schemaVersion", "mode", "chunks", "features", "transformations"]
+      : ["schemaVersion", "upstreamVersion", "mode", "chunks", "features", "transformations"];
+    const allowedRoles = legacyExtension
+      ? new Set(["branding", "registry", "panel"])
+      : new Set(["branding", "router-entrypoint"]);
+    if ((!legacyExtension && !latestExtension) || !Array.isArray(rendererExtension.chunks)
       || Object.keys(rendererExtension).sort().join("\0") !== allowedKeys.sort().join("\0")
       || rendererExtension.chunks.length < 2 || rendererExtension.chunks.length > rendererProvenance.fileCount) {
       throw new Error("Packaged renderer extension provenance is invalid.");
@@ -191,7 +210,7 @@ if (rendererComposition?.mode === "clean-source") {
     for (const chunk of rendererExtension.chunks) {
       const relative = typeof chunk?.path === "string" && chunk.path.startsWith("dist/renderer/") ? chunk.path.slice("dist/renderer/".length) : null;
       const original = relative == null ? null : provenanceFiles.get(relative);
-      if (relative == null || original == null || rendererExtensionChunks.has(relative) || !["branding", "registry", "panel"].includes(chunk.role)
+      if (relative == null || original == null || rendererExtensionChunks.has(relative) || !allowedRoles.has(chunk.role)
         || !Number.isInteger(chunk.original?.bytes) || !/^[0-9a-f]{64}$/.test(chunk.original?.sha256)
         || !Number.isInteger(chunk.patched?.bytes) || !/^[0-9a-f]{64}$/.test(chunk.patched?.sha256)
         || chunk.original.bytes !== original.bytes || chunk.original.sha256 !== original.sha256) {
